@@ -17,6 +17,8 @@ var altitude=spacing*Math.sqrt(3)/2;
 
 var game_ctx = game_canvas.getContext("2d");
 
+var piece_ctx = piece_canvas.getContext("2d");
+
 function Point(x, y) {
   this.x = x;
   this.y = y;
@@ -228,16 +230,16 @@ function IsClickValid(mouse){
 			}
 			if(positions[i][j].x-altitude/2<mouse.x&&positions[i][j].x+altitude/2>mouse.x
 				&&positions[i][j].y-altitude/2<mouse.y&&positions[i][j].y+altitude/2>mouse.y){
-					game_ctx.beginPath();
-					game_ctx.arc(positions[i][j].x,positions[i][j].y,altitude/2,0,Math.PI*2);
-					game_ctx.stroke();
+					piece_ctx.beginPath();
+					piece_ctx.arc(positions[i][j].x,positions[i][j].y,altitude/2,0,Math.PI*2);
+					piece_ctx.stroke();
 			}
 		}
 	}
 }
 
 function getCanvasMousePosition (event) {
-  var rect = game_canvas.getBoundingClientRect();
+  var rect = piece_canvas.getBoundingClientRect();
 
   return {
     x: event.clientX - rect.left,
@@ -247,7 +249,7 @@ function getCanvasMousePosition (event) {
 
 document.addEventListener('click', function(event) {
         lastDownTarget = event.target;
-        if(lastDownTarget == game_canvas) {
+        if(lastDownTarget == piece_canvas) {
         	var canvasMousePosition = getCanvasMousePosition(event);
         	IsClickValid(canvasMousePosition);
             /*game_ctx.beginPath();
