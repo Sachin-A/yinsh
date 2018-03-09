@@ -5,8 +5,10 @@
 		<title>Draw a line</title>
 	</head>
 	<body>
-		<canvas id="GameBoard"></canvas>  
-		<canvas id="PieceLayer"></canvas>
+		<canvas id="PieceLayer"
+			style="position: absolute; left: 0; top: 0; z-index: 1;"></canvas>
+		<canvas id="GameBoard"
+			style="position: absolute; left: 0; top: 0; z-index: 0;"></canvas>  
 		<script  src="js/Yinsh.js"></script>  
 	</body>
 </html>
