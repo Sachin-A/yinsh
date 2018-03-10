@@ -268,7 +268,7 @@ function PlaceRings(xcoord,ycoord){
 	}
 }
 
-function BlackGuides(xcoord,ycoord,asign,bsign){
+function BlackGuides(xcoord,ycoord,asign,bsign,guide){
 	var token_line=0;
 	for(var a=asign, b=bsign;xcoord+a>=0&&xcoord+a<11&&ycoord+b>=0&&ycoord+b<11
 		&&Math.abs(positions[xcoord+a][ycoord+b].piece)!=2&&positions[xcoord+a][ycoord+b].x!=-1;a+=asign,b+=bsign){
@@ -282,7 +282,7 @@ function BlackGuides(xcoord,ycoord,asign,bsign){
 		guide_ctx.fillStyle = "black";
 		guide_ctx.fill();
 		guide_ctx.stroke();
-		positions[xcoord+a][ycoord+b].guide=true;
+		positions[xcoord+a][ycoord+b].guide=guide;
 		if(token_line==1){
 			break;
 		}
@@ -300,12 +300,12 @@ function SelectRings(xcoord,ycoord){
 		guide_ctx.stroke();
 		player[current_player].current_ring=[xcoord,ycoord];
 		
-		BlackGuides(xcoord,ycoord,1,1);
-		BlackGuides(xcoord,ycoord,-1,-1);
-		BlackGuides(xcoord,ycoord,0,1);
-		BlackGuides(xcoord,ycoord,1,0);
-		BlackGuides(xcoord,ycoord,0,-1);
-		BlackGuides(xcoord,ycoord,-1,0);
+		BlackGuides(xcoord,ycoord,1,1,true);
+		BlackGuides(xcoord,ycoord,-1,-1,true);
+		BlackGuides(xcoord,ycoord,0,1,true);
+		BlackGuides(xcoord,ycoord,1,0,true);
+		BlackGuides(xcoord,ycoord,0,-1,true);
+		BlackGuides(xcoord,ycoord,-1,0,true);
 		
 		required_move=2;
 	}
@@ -374,6 +374,17 @@ function MoveRings(xcoord,ycoord){
 		required_move=1;
 		SwitchPlayer();
 	}
+	else{
+		BlackGuides(player[current_player].current_ring[0],player[current_player].current_ring[1],1,1,false);
+		BlackGuides(player[current_player].current_ring[0],player[current_player].current_ring[1],-1,-1,false);
+		BlackGuides(player[current_player].current_ring[0],player[current_player].current_ring[1],0,1,false);
+		BlackGuides(player[current_player].current_ring[0],player[current_player].current_ring[1],1,0,false);
+		BlackGuides(player[current_player].current_ring[0],player[current_player].current_ring[1],0,-1,false);
+		BlackGuides(player[current_player].current_ring[0],player[current_player].current_ring[1],-1,0,false);
+		guide_ctx.clearRect(0, 0, guide_canvas.width, guide_canvas.height);
+		required_move=1;
+	}
+
 
 	
 }
