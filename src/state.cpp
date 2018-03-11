@@ -3,6 +3,7 @@
  * Function definitions for state manipulation
 */
 #include<vector>
+#include<iostream>
 #include "../include/state.h"
 
 namespace state {
@@ -47,16 +48,31 @@ bool Board::MoveElement(Point from, Point to) {
 		return false;
 }
 
-bool Board::FlipMarker(Point p) {
-	if(Board::IsValid(p.x, p.y)) {
-		Element current = Board::GetElementAt(p.x, p.y);
-		if(current == B_MARKER) {
-			current_board[p.x][p.y] = W_MARKER;
+bool Board::FlipMarkers(Point p, Point q, Dir dir) {
+	if(Board::IsValid(p.x, p.y) && Board::IsValid(q.x, q.y)) {
+		
+		int x = q.x - p.x;
+		int y = q.y - p.y;
+		
+		if ((x == dir.first || (x / dir.first == int(x / dir.first))) && 
+		   (y == dir.second || (y / dir.second == int(y / dir.second)))) {		
+			
+			for(Point i = p; ; i.x+=dir.first, i.y+=dir.second) {
+				Element current = Board::GetElementAt(i.x, i.y);
+				if(current == B_MARKER) {
+					current_board[i.x][i.y] = W_MARKER;
+				}
+				else if(current == W_MARKER) {
+					current_board[i.x][i.y] = B_MARKER;
+				}
+				if(i.x == q.x && i.y == q.y) {
+					break;
+				}
+			}
+			return true;
 		}
-		else if(current == W_MARKER) {
-			current_board[p.x][p.y] = B_MARKER;
-		}	
-		return true;
+		else
+			return false;
 	}
 	else
 		return false;
