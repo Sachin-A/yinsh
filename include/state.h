@@ -1,6 +1,6 @@
 /**
  * @file state.h
- * Definitions for Yinsh's game state
+ * Function declarations for Yinsh's game state
  */
 #ifndef STATE_STATE_H
 #define STATE_STATE_H
@@ -9,44 +9,50 @@
 
 namespace state {
 
+struct Point {
+	int x;
+	int y;
+};
+
 enum Element {
-	I, E, B_RING, W_RING, B_MARKER, B_MARKER
-}
+	I, E, B_RING, W_RING, B_MARKER, W_MARKER
+};
 
 /**
  * Game board for the simulation
  */
 class Board {
-private:
+public:
 	std::vector< std::vector <Element > > current_board = 
 	{
-		{I, I, I, E, I, E, I, E, I, I, I}
-		{I, I, E, I, E, I, E, I, E, I, I}
-		{I, E, I, E, I, E, I, E, I, E, I}
-		{I, I, E, I, E, I, E, I, E, I, I}
-		{I, E, I, E, I, E, I, E, I, E, I}
-		{E, I, E, I, E, I, E, I, E, I, E}
-		{I, E, I, E, I, E, I, E, I, E, I}
-		{E, I, E, I, E, I, E, I, E, I, E}
-		{I, E, I, E, I, E, I, E, I, E, I}
-		{E, I, E, I, E, I, E, I, E, I, E}
-		{I, E, I, E, I, E, I, E, I, E, I}
-		{E, I, E, I, E, I, E, I, E, I, E}
-		{I, E, I, E, I, E, I, E, I, E, I}
-		{I, I, E, I, E, I, E, I, E, I, I}
-		{I, E, I, E, I, E, I, E, I, E, I}
-		{I, I, E, I, E, I, E, I, E, I, I}
-		{I, I, I, E, I, E, I, E, I, I, I}
+		{I, I, I, I, E, I, E, I, I, I, I},
+		{I, I, I, E, I, E, I, E, I, I, I},
+		{I, I, E, I, E, I, E, I, E, I, I},
+		{I, E, I, E, I, E, I, E, I, E, I},
+		{I, I, E, I, E, I, E, I, E, I, I},
+		{I, E, I, E, I, E, I, E, I, E, I},
+		{E, I, E, I, E, I, E, I, E, I, E},
+		{I, E, I, E, I, E, I, E, I, E, I},
+		{E, I, E, I, E, I, E, I, E, I, E},
+		{I, E, I, E, I, E, I, E, I, E, I},
+		{E, I, E, I, E, I, E, I, E, I, E},
+		{I, E, I, E, I, E, I, E, I, E, I},
+		{E, I, E, I, E, I, E, I, E, I, E},
+		{I, E, I, E, I, E, I, E, I, E, I},
+		{I, I, E, I, E, I, E, I, E, I, I},
+		{I, E, I, E, I, E, I, E, I, E, I},
+		{I, I, E, I, E, I, E, I, E, I, I},
+		{I, I, I, E, I, E, I, E, I, I, I},
 		{I, I, I, I, E, I, E, I, I, I, I}
 	};
-public:
-	Element GetElementAt(Point);
-	void AddElementAt(Point, Element);
-	void RemoveElementAt(Point);
-	void MoveElement(Point from, Point to);
-	void FlipMarkerColor(Point);
+	bool IsValid(int, int);
+	Element GetElementAt(int, int);
+	bool AddElementAt(Point, Element);
+	bool RemoveElementAt(Point);
+	bool MoveElement(Point from, Point to);
+	bool FlipMarker(Point);
 };
 
 }
 
-#endif
+#endif //STATE_STATE_H
