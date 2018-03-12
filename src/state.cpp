@@ -79,9 +79,22 @@ bool Board::FlipMarkers(Point p, Point q, Dir dir) {
 }
 
 void GameState::DisplayBoard() {
-	for (int i = 0; i < board.current_board.size(); i++) {
+	for (int i = 0; i <= board.current_board.size(); i++) {
 		for (int j = 0; j < board.current_board[0].size(); j++) {
-			switch(board.current_board[i][j]) {
+			if (i == 0) {
+				if (j == 0) {
+					std::cout << "            ";
+				}
+				std::cout << "     " << j << "     ";
+				continue;
+			}
+			if (j == 0) {
+				if (i <= 10) {
+					std::cout << " ";
+				}
+				std::cout << "     " << i - 1 << "     ";
+			}
+			switch(board.current_board[i-1][j]) {
 				case I: 		std::cout << blankFormat;
 								break;
 				case E: 		std::cout << emptyFormat;
