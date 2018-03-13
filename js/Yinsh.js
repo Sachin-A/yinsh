@@ -1,23 +1,23 @@
 var dimension = [document.documentElement.clientWidth, document.documentElement.clientHeight];
 
 var game_canvas = document.getElementById('GameBoard');
-game_canvas.width = dimension[1]*0.75;
-game_canvas.height = dimension[1]*0.75;
+game_canvas.width = dimension[1];
+game_canvas.height = dimension[1];
 var game_ctx = game_canvas.getContext("2d");
 
 var piece_canvas = document.getElementById('PieceLayer');
-piece_canvas.width = dimension[1]*0.75;
-piece_canvas.height = dimension[1]*0.75;
+piece_canvas.width = dimension[1];
+piece_canvas.height = dimension[1];
 var piece_ctx = piece_canvas.getContext("2d");
 
 var guide_canvas = document.getElementById('GuideLayer');
-guide_canvas.width = dimension[1]*0.75;
-guide_canvas.height = dimension[1]*0.75;
+guide_canvas.width = dimension[1];
+guide_canvas.height = dimension[1];
 var guide_ctx = guide_canvas.getContext("2d");
 
 var test_canvas = document.getElementById('TestLayer');
-test_canvas.width = dimension[1]*0.75;
-test_canvas.height = dimension[1]*0.75;
+test_canvas.width = dimension[1];
+test_canvas.height = dimension[1];
 var test_ctx = test_canvas.getContext("2d");
 
 var centerx = game_canvas.width/2;
@@ -29,8 +29,8 @@ var altitude=spacing*Math.sqrt(3)/2;
 var current_player=0;
 
 var player=new Array(2);
-player[0]={board_rings:0, rings_won:0, color:"#00FF00", current_ring:[-1,-1], five_row:new Array(0)};
-player[1]={board_rings:0, rings_won:0, color:"#FF0000", current_ring:[-1,-1], five_row:new Array(0)};
+player[0]={board_rings:0, rings_won:0, color:"#009900", current_ring:[-1,-1], five_row:new Array(0)};
+player[1]={board_rings:0, rings_won:0, color:"#990000", current_ring:[-1,-1], five_row:new Array(0)};
 
 /*
 0-Place Rings
@@ -136,6 +136,7 @@ function DrawBoardLines(){
 		}
 		end=j-1;
 		game_ctx.beginPath();
+		game_ctx.strokeStyle="#888888";
 		game_ctx.moveTo(positions[i][begin].x,positions[i][begin].y);
 		game_ctx.lineTo(positions[i][end].x,positions[i][end].y);
 		//game_ctx.moveTo(0,0);
@@ -301,7 +302,7 @@ function PlaceRings(xcoord,ycoord){
 	if(positions[xcoord][ycoord].piece==0){
 		piece_ctx.beginPath();
 		piece_ctx.strokeStyle=player[current_player].color;
-		piece_ctx.arc(positions[xcoord][ycoord].x,positions[xcoord][ycoord].y,altitude/2,0,Math.PI*2);
+		piece_ctx.arc(positions[xcoord][ycoord].x,positions[xcoord][ycoord].y,altitude/2.4,0,Math.PI*2);
 		piece_ctx.stroke();
 		positions[xcoord][ycoord].piece=Math.pow(-1,current_player)*2;
 		player[current_player].board_rings++;
@@ -338,8 +339,15 @@ function SelectRings(xcoord,ycoord){
 	if(positions[xcoord][ycoord].piece==Math.pow(-1,current_player)*2){
 		guide_ctx.beginPath();
 		guide_ctx.strokeStyle="black";
-		guide_ctx.arc(positions[xcoord][ycoord].x,positions[xcoord][ycoord].y,altitude*3/8,0,Math.PI*2);
-		guide_ctx.fillStyle = player[current_player].color;
+		guide_ctx.arc(positions[xcoord][ycoord].x,positions[xcoord][ycoord].y,altitude*3/10,0,Math.PI*2);
+
+		var grd=guide_ctx.createRadialGradient(positions[xcoord][ycoord].x,positions[xcoord][ycoord].y,altitude*3/20
+			,positions[xcoord][ycoord].x,positions[xcoord][ycoord].y,altitude*3/10);
+
+		grd.addColorStop(0,player[current_player].color);
+		grd.addColorStop(1,"#444444");
+		guide_ctx.fillStyle=grd;
+		//guide_ctx.fillStyle = player[current_player].color;
 		guide_ctx.fill();
 		guide_ctx.stroke();
 		player[current_player].current_ring=[xcoord,ycoord];
@@ -372,15 +380,23 @@ function RemoveBlackGuides(xring,yring,destx,desty,asign,bsign){
 				positions[xring][yring].piece=Math.pow(-1,current_player);
 				piece_ctx.beginPath();
 				piece_ctx.strokeStyle="black";
-				piece_ctx.arc(positions[xring][yring].x,positions[xring][yring].y,altitude*3/8,0,Math.PI*2);
-				piece_ctx.fillStyle = player[current_player].color;
+				piece_ctx.arc(positions[xring][yring].x,positions[xring][yring].y,altitude*3/10,0,Math.PI*2);
+
+				var grd=piece_ctx.createRadialGradient(positions[xring][yring].x,positions[xring][yring].y,altitude*3/20
+					,positions[xring][yring].x,positions[xring][yring].y,altitude*3/10);
+
+				grd.addColorStop(0,player[current_player].color);
+				grd.addColorStop(1,"#444444");
+				piece_ctx.fillStyle=grd;
+
+				//piece_ctx.fillStyle = player[current_player].color;
 				piece_ctx.fill();
 				piece_ctx.stroke();
 
 				positions[destx][desty].piece=Math.pow(-1,current_player)*2;
 				piece_ctx.beginPath();
 				piece_ctx.strokeStyle=player[current_player].color;
-				piece_ctx.arc(positions[destx][desty].x,positions[destx][desty].y,altitude/2,0,Math.PI*2);
+				piece_ctx.arc(positions[destx][desty].x,positions[destx][desty].y,altitude/2.4,0,Math.PI*2);
 				piece_ctx.stroke();
 
 				flip=0;
@@ -391,13 +407,27 @@ function RemoveBlackGuides(xring,yring,destx,desty,asign,bsign){
 			positions[xring+a][yring+b].piece*=-1;
 			piece_ctx.beginPath();
 			piece_ctx.strokeStyle="black";
-			piece_ctx.arc(positions[xring+a][yring+b].x,positions[xring+a][yring+b].y,altitude*3/8,0,Math.PI*2);
+			piece_ctx.arc(positions[xring+a][yring+b].x,positions[xring+a][yring+b].y,altitude*3/10,0,Math.PI*2);
+
+			var grd=piece_ctx.createRadialGradient(positions[xring+a][yring+b].x,positions[xring+a][yring+b].y,altitude*3/20
+					,positions[xring+a][yring+b].x,positions[xring+a][yring+b].y,altitude*3/10);
+
+				
+				
+				
+
 			if(positions[xring+a][yring+b].piece==1){
-				piece_ctx.fillStyle = player[0].color;
+				grd.addColorStop(0,player[0].color);
+				grd.addColorStop(1,"#444444");
+				//piece_ctx.fillStyle = player[0].color;
 			}
 			else{
-				piece_ctx.fillStyle = player[1].color;
+				grd.addColorStop(0,player[1].color);
+				grd.addColorStop(1,"#444444");
+				//piece_ctx.fillStyle = player[1].color;
 			}
+
+			piece_ctx.fillStyle=grd;
 			
 			piece_ctx.fill();
 			piece_ctx.stroke();
@@ -489,7 +519,7 @@ function HighlightRow(){
 
 				guide_ctx.beginPath();
 				guide_ctx.strokeStyle="black";
-				guide_ctx.arc(positions[xindex][yindex].x,positions[xindex][yindex].y,altitude*3/8,0,Math.PI*2);
+				guide_ctx.arc(positions[xindex][yindex].x,positions[xindex][yindex].y,altitude*3/10,0,Math.PI*2);
 				guide_ctx.fillStyle = "black";
 				guide_ctx.fill();
 				guide_ctx.stroke();
