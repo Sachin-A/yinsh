@@ -8,6 +8,8 @@
 #include <vector>
 #include <utility>
 
+#define clear	std::cout << "\033c\n";
+
 namespace state {
 
 /**
@@ -20,12 +22,12 @@ int blackRings = 5;
 /**
  * @brief      Output format for printing different elements
  */
-std::string blankFormat 		= "           ";
-std::string emptyFormat 		= "     \033[1;31;41m#\033[0m     ";
-std::string blackRingFormat 	= "     \033[1;37;40mR\033[0m     ";
-std::string whiteRingFormat 	= "     \033[1;37mR\033[0m     ";
-std::string blackMarkerFormat 	= "     \033[1;37;40mM\033[0m     ";
-std::string whiteMarkerFormat 	= "     \033[1;37mM\033[0m     ";
+std::string blankFormat			= "         ";
+std::string emptyFormat			= "    \033[1;31m*\033[0m    ";
+std::string blackRingFormat		= "    \033[1;30;47mR\033[0m    ";
+std::string whiteRingFormat		= "    \033[1;37mR\033[0m    ";
+std::string blackMarkerFormat	= "    \033[1;37;40mM\033[0m    ";
+std::string whiteMarkerFormat	= "    \033[1;37mM\033[0m    ";
 
 /**
  * @brief      A struct for packing the coordinates
@@ -33,6 +35,9 @@ std::string whiteMarkerFormat 	= "     \033[1;37mM\033[0m     ";
 struct Point {
 	int x;
 	int y;
+
+	Point operator+ (const Point& p);
+	bool operator== (const Point& p);
 };
 
 /**
@@ -47,14 +52,6 @@ struct Point {
 enum Element {
 	I, E, B_RING, W_RING, B_MARKER, W_MARKER
 };
-
-typedef std::pair<int,int> Dir;
-const Dir N_Dir  = std::make_pair(-2, 0),
-          NE_Dir = std::make_pair(-1, 1),
-          SE_Dir = std::make_pair(1, 1),
-          S_Dir  = std::make_pair(2, 0),
-          SW_Dir = std::make_pair(1, -1),
-          NW_Dir = std::make_pair(-1, -1);
 
 /**
  * Game board for the simulation
@@ -143,7 +140,7 @@ public:
 	 * @return     True if successful, False if any point is an invalid board
 	 *             position
 	 */
-	bool FlipMarkers(Point p, Point q, Dir dir);
+	bool FlipMarkers(Point p, Point q, Point dir);
 };
 
 class GameState {
@@ -192,7 +189,7 @@ public:
 	 * @return     returns false if row greater than 5, points doesn't form row,
 	 *             if valid row not formed or invalid ring position
 	 */
-	bool RemoveRowAndRing(Point row_start, Point row_end, Dir dir, Point ring_pos);
+	bool RemoveRowAndRing(Point row_start, Point row_end, Point dir, Point ring_pos);
 
 	/**
 	 * @brief      Returns valid moves in each direction
@@ -213,14 +210,15 @@ public:
 	std::vector<std::pair<int, Point> > ValidMoves(Point ring_pos);
 
 	/**
-	 * @brief      Returns all valid points in given direction
+	 * @brief      Returns all valid points in a given direction
 	 *
 	 * @param[in]  ring_pos  The ring position
 	 * @param[in]  dir       The direction
 	 *
-	 * @return     Returns a vector of all points in given direction
+	 * @return     Returns a pair consisting of an int (case) and a vector of all points
+	 *             in a given direction
 	 */
-	std::vector<Point> ValidPoints(Point ring_pos, Dir dir);
+	std::pair<int, std::vector<Point>> ValidPoints(Point ring_pos, Point dir);
 
 	/**
 	 * @brief      Returns all rows formed for player

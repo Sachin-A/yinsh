@@ -8,6 +8,27 @@
 
 namespace state {
 
+/**
+ * North, North-East, North-West, South, South-East, South-West
+ */
+Point dirs[6] = {{-2, 0 }, {-1, 1}, {-1, -1}, {2, 0}, {1, 1}, {1, -1}}
+
+Point Point::operator+ (const Point& p) {
+	Point temp;
+	temp.x = x + p.x;
+	temp.y = y + p.y;
+	return temp;
+}
+
+bool Point::operator== (const Point& p) {
+	if(x == p.x && y == p.y) {
+		return true;
+	}
+	else {
+		return false;
+	}
+}
+
 bool Board::IsValid(int x, int y) {
 	if(current_board[x][y] != I) {
 		return true;
@@ -48,16 +69,16 @@ bool Board::MoveElement(Point from, Point to) {
 		return false;
 }
 
-bool Board::FlipMarkers(Point p, Point q, Dir dir) {
+bool Board::FlipMarkers(Point p, Point q, Point dir) {
 	if(Board::IsValid(p.x, p.y) && Board::IsValid(q.x, q.y)) {
 		
-		int x = q.x - p.x;
-		int y = q.y - p.y;
+		float x = q.x - p.x;
+		float y = q.y - p.y;
 		
-		if ((x == dir.first || (x / dir.first == int(x / dir.first))) && 
-		   (y == dir.second || (y / dir.second == int(y / dir.second)))) {		
+		if ((x == dir.x || (x / dir.x == int(x / dir.x))) &&
+		    (y == dir.y || (y / dir.y == int(y / dir.y)))) {
 			
-			for(Point i = p; ; i.x+=dir.first, i.y+=dir.second) {
+			for(Point i = p; ; i = i + dir) {
 				Element current = Board::GetElementAt(i.x, i.y);
 				if(current == B_MARKER) {
 					current_board[i.x][i.y] = W_MARKER;
@@ -65,7 +86,7 @@ bool Board::FlipMarkers(Point p, Point q, Dir dir) {
 				else if(current == W_MARKER) {
 					current_board[i.x][i.y] = B_MARKER;
 				}
-				if(i.x == q.x && i.y == q.y) {
+				if(i == q) {
 					break;
 				}
 			}
@@ -85,7 +106,7 @@ void GameState::DisplayBoard() {
 				if (j == 0) {
 					std::cout << "            ";
 				}
-				std::cout << "     " << j << "     ";
+				std::cout << "    " << j << "    ";
 				continue;
 			}
 			if (j == 0) {
@@ -109,23 +130,23 @@ void GameState::DisplayBoard() {
 								break;
 			}
 		}
-		std::cout << std::endl << std::endl;
+		std::cout << "\n\n";
 	}
 }
 
-bool GameState::AddRing(Point p, int player_id) {
-	if(board.IsValid(p.x, p.y)) {
+bool GameState::AddRing(Point ring_pos, int player_id) {
+	if(board.IsValid(ring_pos.x, ring_pos.y)) {
 		if(player_id == 0 && whiteRings > 0) {
-			if(board.GetElementAt(p.x, p.y) == E) {
-				board.AddElementAt(p, W_RING);
+			if(board.GetElementAt(ring_pos.x, ring_pos.y) == E) {
+				board.AddElementAt(ring_pos, W_RING);
 				whiteRings--;
 				return true;
 			}
 			return false;
 		}
 		else if(player_id == 1 && blackRings > 0) {
-			if(board.GetElementAt(p.x, p.y) == E) {
-				board.AddElementAt(p, B_RING);
+			if(board.GetElementAt(ring_pos.x, ring_pos.y) == E) {
+				board.AddElementAt(ring_pos, B_RING);
 				blackRings--;
 				return true;
 			}
@@ -133,6 +154,41 @@ bool GameState::AddRing(Point p, int player_id) {
 		}
 	}
 	return false;
+}
+
+std::pair<int, std::vector<Point>> GameState::ValidPoints(Point ring_pos, Point dir) {
+	if(board.IsValid(ring_pos.x, ring_pos.y)) {
+		Point i = ring_pos;
+		std::vector<Point> V;
+		bool first_jump = false;
+		bool no_jump = false;
+		do {
+			i = i + dir;
+			if(board.GetElementAt(i.x, i.y) == W_RING ||
+		            board.GetElementAt(i.x, i.y) == B_RING) {
+				return std::make_pair(0, V);
+			}
+			else if(board.GetElementAt(i.x, i.y) == E) {
+				V.push_back(i);
+				if (first_jump) {
+					return std::make_pair(1, V);
+				}
+				else {
+					no_jump = true;
+				}
+			}
+			else if(board.GetElementAt(i.x, i.y) == W_MARKER ||
+		            board.GetElementAt(i.x, i.y) == B_MARKER) {
+				if(no_jump) {
+					return std::make_pair(2, V);
+				}
+				else {
+					first_jump = true;
+				}
+			}
+
+		} while(board.IsValid(i.x, i.y));
+	}
 }
 
 }
@@ -143,6 +199,7 @@ int main() {
 	int x, y;
 	int player_id = 0;
 
+	clear;
 	G.DisplayBoard();
 
 	while(state::whiteRings > 0 || state::blackRings > 0) {
@@ -152,6 +209,7 @@ int main() {
 		if(check)
 			player_id = !player_id;
 
+		clear;
 		G.DisplayBoard();
 	}
 }
