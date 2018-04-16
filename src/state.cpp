@@ -4,6 +4,7 @@
 */
 #include<vector>
 #include<iostream>
+#include<algorithm>
 #include "../include/state.h"
 
 namespace state {
@@ -11,7 +12,7 @@ namespace state {
 /**
  * North, North-East, North-West, South, South-East, South-West
  */
-Point dirs[6] = {{-2, 0 }, {-1, 1}, {-1, -1}, {2, 0}, {1, 1}, {1, -1}}
+Point dirs[6] = {{-2, 0 }, {-1, 1}, {-1, -1}, {2, 0}, {1, 1}, {1, -1}};
 
 Point Point::operator+ (const Point& p) {
 	Point temp;
@@ -77,6 +78,12 @@ bool Board::FlipMarkers(Point p, Point q, Point dir) {
 		
 		if ((x == dir.x || (x / dir.x == int(x / dir.x))) &&
 		    (y == dir.y || (y / dir.y == int(y / dir.y)))) {
+
+			if(dir.x != 0 && dir.y != 0) {
+				if (x / dir.x != y / dir.y) {
+					return false;
+				}
+			}
 			
 			for(Point i = p; ; i = i + dir) {
 				Element current = Board::GetElementAt(i.x, i.y);
@@ -156,22 +163,88 @@ bool GameState::AddRing(Point ring_pos, int player_id) {
 	return false;
 }
 
+bool GameState::MoveRing(Point ring_pos, Point ring_dest, int player_id) {
+	Element ring = player_id == 0 ? W_RING : B_RING;
+	Element marker = player_id == 0 ? W_MARKER : B_MARKER;
+	if(board.IsValid(ring_pos.x, ring_pos.y) &&
+	   board.GetElementAt(ring_pos.x, ring_pos.y) == ring &&
+	   board.GetElementAt(ring_dest.x, ring_dest.y) == E) {
+
+		int dx = ring_dest.x - ring_pos.x;
+		int dy = ring_dest.y - ring_pos.y;
+		int px = 0, py = 0;
+		int dir_index = -1;
+
+		for (int i = 0; i < 6; i++) {
+			if(dx != 0 && dirs[i].x != 0 && dx * dirs[i].x > 0) {
+				px = dx % dirs[i].x;
+			}
+			else if ((dx == 0 && dirs[i].x != 0) ||
+					 (dx != 0 && dirs[i].x == 0) ||
+					 (dx * dirs[i].x < 0)) {
+				px = -1;
+			}
+
+			if(dy != 0 && dirs[i].y != 0 && dy * dirs[i].y > 0) {
+				py = dy % dirs[i].y;
+			}
+			else if ((dy == 0 && dirs[i].y != 0) ||
+					 (dy != 0 && dirs[i].y == 0) ||
+					 (dy * dirs[i].y < 0)) {
+				py = -1;
+			}
+
+			if (px == 0 && py == 0) {
+				dir_index = i;
+				break;
+			}
+		}
+
+		if(dir_index == -1) {
+			return false;
+		}
+
+		std::pair<int, std::vector<Point>> v = ValidPoints(ring_pos, dirs[dir_index]);
+		if(std::find(v.second.begin(), v.second.end(), ring_dest) != v.second.end()) {
+			AddRing(ring_dest, player_id);
+			board.AddElementAt(ring_pos, marker);
+			board.FlipMarkers(ring_pos, ring_dest, dirs[dir_index]);
+		}
+		else {
+			return false;
+		}
+	}
+	else {
+		return false;
+	}
+}
+
+std::vector<std::pair<int, std::vector<Point>>> GameState::ValidMoves(Point ring_pos) {
+
+	std::vector<std::pair<int, std::vector<Point>>> valid_moves;
+
+	for (int i = 0; i < 6; i++) {
+		valid_moves.push_back(ValidPoints(ring_pos, dirs[i]));
+	}
+	return valid_moves;
+}
+
 std::pair<int, std::vector<Point>> GameState::ValidPoints(Point ring_pos, Point dir) {
 	if(board.IsValid(ring_pos.x, ring_pos.y)) {
 		Point i = ring_pos;
-		std::vector<Point> V;
+		std::vector<Point> valid_points;
 		bool first_jump = false;
 		bool no_jump = false;
 		do {
 			i = i + dir;
 			if(board.GetElementAt(i.x, i.y) == W_RING ||
 		            board.GetElementAt(i.x, i.y) == B_RING) {
-				return std::make_pair(0, V);
+				return std::make_pair(0, valid_points);
 			}
 			else if(board.GetElementAt(i.x, i.y) == E) {
-				V.push_back(i);
+				valid_points.push_back(i);
 				if (first_jump) {
-					return std::make_pair(1, V);
+					return std::make_pair(1, valid_points);
 				}
 				else {
 					no_jump = true;
@@ -180,7 +253,7 @@ std::pair<int, std::vector<Point>> GameState::ValidPoints(Point ring_pos, Point 
 			else if(board.GetElementAt(i.x, i.y) == W_MARKER ||
 		            board.GetElementAt(i.x, i.y) == B_MARKER) {
 				if(no_jump) {
-					return std::make_pair(2, V);
+					return std::make_pair(2, valid_points);
 				}
 				else {
 					first_jump = true;

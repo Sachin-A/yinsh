@@ -171,11 +171,12 @@ public:
 	 *
 	 * @param[in]  ring_pos   Ring's position
 	 * @param[in]  ring_dest  Ring's destination
+	 * @param[in]  player_id  The player identifier
 	 *
 	 * @return     returns false if move invalid (illegal position or out of
 	 *             board)
 	 */
-	bool MoveRing(Point ring_pos, Point ring_dest);
+	bool MoveRing(Point ring_pos, Point ring_dest, int player_id);
 
 	/**
 	 * @brief      Removes a row of markers from Point A to Point B (if move
@@ -192,22 +193,22 @@ public:
 	bool RemoveRowAndRing(Point row_start, Point row_end, Point dir, Point ring_pos);
 
 	/**
-	 * @brief      Returns valid moves in each direction
+	 * @brief      Returns all valid points in every direction
 	 *
 	 * @param[in]  ring_pos  Starting position of ring
 	 *
-	 * @return     Returns vector of pairs (int, point) for each direction
+	 * @return     Returns vector of pairs (int, vector<point>) for each direction
 	 *             Case 1
 	 *             int(0): Blocked by markers followed by ring or just a ring
-	 *             Point(x,y): Opposing ring position
+	 *             Vector<point>: Empty
 	 *             Case 2
 	 *             int(1): Not immediately blocked by a marker
-	 *             Point(x,y): Last valid position
+	 *             Point(x,y): All valid positions from ring to till before the marker
 	 *             Case 3
 	 *             int(2): Blocked by only a non empty set of markers
 	 *             Point(x,y): First position after markers
 	 */
-	std::vector<std::pair<int, Point> > ValidMoves(Point ring_pos);
+	std::vector<std::pair<int, std::vector<Point>>> ValidMoves(Point ring_pos);
 
 	/**
 	 * @brief      Returns all valid points in a given direction
@@ -227,7 +228,7 @@ public:
 	 *
 	 * @return     Returns vector of pairs(start, end) for all rows
 	 */
-	std::vector<std::pair<Point, Point> > RowsFormed(int player_id);
+	std::vector<std::pair<Point, Point>> RowsFormed(int player_id);
 
 	/**
 	 * @brief      Undo's the given action from the board
