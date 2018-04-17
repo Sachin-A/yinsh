@@ -30,8 +30,10 @@ bool Point::operator== (const Point& p) {
 	}
 }
 
-bool Board::IsValid(int x, int y) {
-	if(current_board[x][y] != I) {
+bool Board::IsValid(Point p) {
+	if(current_board[p.x][p.y] != I &&
+	   p.x > -1 && p.x < boardRows &&
+	   p.y > -1 && p.y < boardCols) {
 		return true;
 	}
 	else
@@ -39,11 +41,13 @@ bool Board::IsValid(int x, int y) {
 }
 
 Element Board::GetElementAt(int x, int y) {
+	//check is valid
 	return current_board[x][y];
 }
 
 bool Board::AddElementAt(Point p, Element e) {
-	if(Board::IsValid(p.x, p.y)) {
+	// is empty
+	if(Board::IsValid(p)) {
 		current_board[p.x][p.y] = e;
 		return true;
 	}
@@ -52,7 +56,7 @@ bool Board::AddElementAt(Point p, Element e) {
 }
 
 bool Board::RemoveElementAt(Point p) {
-	if(Board::IsValid(p.x, p.y)) {
+	if(Board::IsValid(p)) {
 		current_board[p.x][p.y] = E;
 		return true;
 	}
@@ -61,7 +65,8 @@ bool Board::RemoveElementAt(Point p) {
 }
 
 bool Board::MoveElement(Point from, Point to) {
-	if(Board::IsValid(to.x, to.y)) {
+	//from valid
+	if(Board::IsValid(to)) {
 		current_board[to.x][to.y] = Board::GetElementAt(from.x, from.y);
 		current_board[from.x][from.y] = E;
 		return true;
@@ -71,7 +76,7 @@ bool Board::MoveElement(Point from, Point to) {
 }
 
 bool Board::FlipMarkers(Point p, Point q, Point dir) {
-	if(Board::IsValid(p.x, p.y) && Board::IsValid(q.x, q.y)) {
+	if(Board::IsValid(p) && Board::IsValid(q)) {
 		
 		float x = q.x - p.x;
 		float y = q.y - p.y;
@@ -142,7 +147,7 @@ void GameState::DisplayBoard() {
 }
 
 bool GameState::AddRing(Point ring_pos, int player_id) {
-	if(board.IsValid(ring_pos.x, ring_pos.y)) {
+	if(board.IsValid(ring_pos)) {
 		if(player_id == 0 && whiteRings > 0) {
 			if(board.GetElementAt(ring_pos.x, ring_pos.y) == E) {
 				board.AddElementAt(ring_pos, W_RING);
@@ -166,7 +171,7 @@ bool GameState::AddRing(Point ring_pos, int player_id) {
 bool GameState::MoveRing(Point ring_pos, Point ring_dest, int player_id) {
 	Element ring = player_id == 0 ? W_RING : B_RING;
 	Element marker = player_id == 0 ? W_MARKER : B_MARKER;
-	if(board.IsValid(ring_pos.x, ring_pos.y) &&
+	if(board.IsValid(ring_pos) &&
 	   board.GetElementAt(ring_pos.x, ring_pos.y) == ring &&
 	   board.GetElementAt(ring_dest.x, ring_dest.y) == E) {
 
@@ -219,6 +224,50 @@ bool GameState::MoveRing(Point ring_pos, Point ring_dest, int player_id) {
 	}
 }
 
+bool GameState::IsValidRow(Point row_start, Point row_end, Point dir, int player_id) {
+	if(board.IsValid(row_start) &&
+	   board.IsValid(row_end)) {
+		Element marker = player_id == 0 ? W_MARKER : B_MARKER;
+		Point pos = row_start;
+		for (int i = 0; i < 5; i++) {
+			if(board.GetElementAt(pos.x, pos.y) != marker) {
+				return false;
+			}
+			pos = pos + dir;
+		}
+		return true;
+	}
+}
+
+bool GameState::RemoveRowAndRing(Point row_start, Point row_end, Point dir, Point ring_pos, int player_id) {
+	if(board.IsValid(row_start) &&
+	   board.IsValid(row_end) &&
+	   board.IsValid(ring_pos)) {
+
+		Element ring = player_id == 0 ? W_RING : B_RING;
+		if(IsValidRow(row_start, row_end, dir, player_id) &&
+			board.GetElementAt(ring_pos.x, ring_pos.y) == ring) {
+			Point pos = row_start;
+			for (int i = 0; i < 5; i++) {
+				if(!board.AddElementAt(pos, E)) {
+					return false;
+				}
+				pos = pos + dir;
+			}
+			if(!board.AddElementAt(ring_pos, E)) {
+					return false;
+			}
+			return true;
+		}
+		else {
+			return false;
+		}
+	}
+	else {
+		return false;
+	}
+}
+
 std::vector<std::pair<int, std::vector<Point>>> GameState::ValidMoves(Point ring_pos) {
 
 	std::vector<std::pair<int, std::vector<Point>>> valid_moves;
@@ -230,7 +279,7 @@ std::vector<std::pair<int, std::vector<Point>>> GameState::ValidMoves(Point ring
 }
 
 std::pair<int, std::vector<Point>> GameState::ValidPoints(Point ring_pos, Point dir) {
-	if(board.IsValid(ring_pos.x, ring_pos.y)) {
+	if(board.IsValid(ring_pos)) {
 		Point i = ring_pos;
 		std::vector<Point> valid_points;
 		bool first_jump = false;
@@ -260,7 +309,7 @@ std::pair<int, std::vector<Point>> GameState::ValidPoints(Point ring_pos, Point 
 				}
 			}
 
-		} while(board.IsValid(i.x, i.y));
+		} while(board.IsValid(i));
 	}
 }
 

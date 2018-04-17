@@ -18,6 +18,8 @@ namespace state {
  */
 int whiteRings = 5;
 int blackRings = 5;
+const int boardRows = 19;
+const int boardCols = 11;
 
 /**
  * @brief      Output format for printing different elements
@@ -84,12 +86,11 @@ public:
 	/**
 	 * @brief      Determines if valid board position
 	 *
-	 * @param[in]  x     x coordinate
-	 * @param[in]  y     y coordinate
+	 * @param[in]  p     Point p
 	 *
 	 * @return     True if valid position, False otherwise.
 	 */
-	bool IsValid(int x, int y);
+	bool IsValid(Point p);
 
 	/**
 	 * @brief      Gets the element at given position
@@ -179,6 +180,18 @@ public:
 	bool MoveRing(Point ring_pos, Point ring_dest, int player_id);
 
 	/**
+	 * @brief      Determines if given points form row.
+	 *
+	 * @param[in]  row_start  Start of row
+	 * @param[in]  row_end    End of row
+	 * @param[in]  dir        The direction from start to end
+	 * @param[in]  player_id  The player identifier
+	 *
+	 * @return     True if valid row, False otherwise.
+	 */
+	bool IsValidRow(Point row_start, Point row_end, Point dir, int player_id);
+
+	/**
 	 * @brief      Removes a row of markers from Point A to Point B (if move
 	 *             valid)
 	 *
@@ -186,11 +199,12 @@ public:
 	 * @param[in]  row_end    End of row
 	 * @param[in]  dir        The direction from start to end
 	 * @param[in]  ring_pos   Position of ring to remove
+	 * @param[in]  player_id  The player identifier
 	 *
 	 * @return     returns false if row greater than 5, points doesn't form row,
 	 *             if valid row not formed or invalid ring position
 	 */
-	bool RemoveRowAndRing(Point row_start, Point row_end, Point dir, Point ring_pos);
+	bool RemoveRowAndRing(Point row_start, Point row_end, Point dir, Point ring_pos, int player_id);
 
 	/**
 	 * @brief      Returns all valid points in every direction
