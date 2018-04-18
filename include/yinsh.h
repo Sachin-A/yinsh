@@ -52,6 +52,42 @@ struct YinshState : public State<YinshState, YinshMove> {
 		return clone;
 	}
 
+	void get_non_intersecting_rows (
+		std::vector<std::vector<uint128_t> >& choices,
+		int n) {
+		for(int i = n; i < choices.size(); ) {
+			bool split = false;
+			for (int j = 0; j < choices[i].size() - 1; j++) {
+				for (int k = j + 1; k < choices[i].size(); k++) {
+					if((choices[i][j] & choices[i][k]) != 0) {
+						choices.push_back(choices[i]);
+
+						std::vector<uint128_t>::iterator pos1 = std::find(choices[i].begin(), choices[i].end(), choices[i][k]);
+						if (pos1 != choices[i].end()) {
+							choices[i].erase(pos1);
+						}
+						std::vector<uint128_t>::iterator pos2 = std::find(choices[choices.size() - 1].begin(),
+																	choices[choices.size() - 1].end(), choices[i][j]);
+						if (pos2 != choices[choices.size() - 1].end()) {
+							choices[choices.size() - 1].erase(pos2);
+						}
+						split = true;
+						break;
+					}
+					if(split) {
+						break;
+					}
+				}
+				if(split) {
+						break;
+				}
+			}
+			if(!split) {
+				i++;
+			}
+		}
+	}
+
 	// Not handling rings < rows
 	void combinations(int offset, int k,
 					  std::vector<uint128_t>& rings,
@@ -104,7 +140,8 @@ struct YinshState : public State<YinshState, YinshMove> {
 		else {
 			if(!rows_formed.empty()) {
 				int k = 0;
-				std::vector<vector<uint128_t> > choices = get_non_intersecting_rows(rows_formed);
+				std::vector<std::vector<uint128_t> > choices = { rows_formed };
+				get_non_intersecting_rows(choices);
 				std::sort(choices.begin(), choices.end(),
 					[](const vector<int> & a, const vector<int> & b){ return a.size() < b.size(); });
 				std::vector<std::vector<uint128_t> > all_sets;
