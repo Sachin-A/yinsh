@@ -240,33 +240,82 @@ struct YinshState : public State<YinshState, YinshMove> {
 		return clone;
 	}
 
-/*	int get_goodness() const override {
-		if (is_terminal()) {
-			if (is_winner(player_to_move)) {
-				return INT_MAX;
-			} else if (is_winner(get_enemy(player_to_move))) {
-				return INT_MIN;
-			} else {
-				return 0;
-			}
+	///////////////////////////////////////////////////////////////////////////
+	//Weights
+	std::vector<std::vector<int> > row_weights = {1, 3, 9, 27, 81};
+	int w0=1;
+	int w9=1;
+	int w8=1;
+	int w7=1;
+	int w6=1;
+	int w5=1;
+	int w4=1;
+	int w3=1;
+	int w2=1;
+	int w1=1;
+	int a0=0.5;
+	int b0=0.5;
+	int b1=0.5;
+
+	int no_of_moves1=0;
+	int no_of_moves2=0;
+
+	//Count no of markers
+	float countMarkers(uint128_t b){
+		unsigned int marker_count = 0;
+	    while (b)
+	    {
+	      b &= (b-1) ;
+	      marker_count++;
+	    }
+		return (float)marker_count;
+	}
+
+	int get_goodness() const override {
+		float no_B_markers = countMarkers(board_2);
+		float no_W_markers = countMarkers(board_1);
+
+		float B_row = board.MarkerScore(B_MARKER,B_RING);
+		float W_row = board.MarkerScore(W_MARKER,W_RING);
+
+		Element flip_ring;
+		//player hasn't moved yet
+		if(current_player==0){
+			flip_ring=W_RING;
 		}
+		else{
+			flip_ring=B_RING;
+		}	
+		float flip_B_markers = board.FlippedScore(B_MARKER,flip_ring);
+		float flip_W_markers = board.FlippedScore(W_MARKER,flip_ring);
 
-		int score = get_reserve_value(pieces_left_1) - get_reserve_value(pieces_left_2);
+		float mobility_B_ring = no_of_moves2;
+		float mobility_W_ring = no_of_moves1;
+		
 
-		auto pieces_board_1 = no_of_set_bits(board_1.board);
-		auto pieces_board_2 = no_of_set_bits(board_2.board);
-		score += (pieces_board_1 - pieces_board_2) * 230;
+		return (w0*no_B_markers
+		+ w1*B_row
+		+ w2*flip_B_markers
+		+ w3*mobility_B_ring
+		+ w4*playerBScore)*(a0+b0*playerBScore)
 
-		int pieces_dead_1 = 15 - pieces_left_1 - pieces_board_1;
-		int pieces_dead_2 = 15 - pieces_left_2 - pieces_board_2;
-		score += (pieces_dead_2 - pieces_dead_1) * (pieces_dead_2 + pieces_dead_1) * 10;
+		+ (w5*no_W_markers
+		+ w6*W_row
+		+ w7*flip_W_markers
+		+ w8*mobility_W_ring
+		+ w9*playerAScore)*(a0+b1*playerAScore);
 
+
+
+		
 		if (player_to_move == PLAYER_2) {
 			score *= -1;
 		}
 
 		return score;
-	}* /
+
+	}
+
 
 	void get_non_intersecting_rows (
 		std::vector<std::vector<uint128_t> >& choices,
@@ -351,6 +400,7 @@ struct YinshState : public State<YinshState, YinshMove> {
 				}
 			}
 			no_of_rings_placed--;
+			player_to_move == PLAYER_1 ? no_of_moves1=moves.size() : no_of_moves2=moves.size();
 			return moves;
 		}
 		else {
@@ -372,8 +422,11 @@ struct YinshState : public State<YinshState, YinshMove> {
 						moves.push_back(YinshMove(choice, all_sets[i]));
 					}
 				}
+				player_to_move == PLAYER_1 ? no_of_moves1=moves.size() : no_of_moves2=moves.size();
 				return moves;
 			}
+			int flip_marker1=0;
+			int flip_marker2=0;
 			else {
 				for(auto ring: rings) {
 					for (auto dir: all_directions) {
@@ -405,6 +458,7 @@ struct YinshState : public State<YinshState, YinshMove> {
 					}
 				}
 				update_rows_formed();
+				player_to_move == PLAYER_1 ? no_of_moves1=moves.size() : no_of_moves2=moves.size();
 				return moves;
 			}
 		}
@@ -566,8 +620,6 @@ struct YinshState : public State<YinshState, YinshMove> {
 			default:	break;
 		}
 	}
-
-<<<<<<< 19668d3417a363fb12344504b3a8e7cc79d699c0
 	ostream &to_stream(ostream &os) const override {
 		for (int i = 0; i <= 19; i++) {
 			for (int j = 0; j < 11; j++) {
@@ -665,8 +717,3 @@ struct YinshState : public State<YinshState, YinshMove> {
 		return seed;
 	}
 };
-||||||| merged common ancestors
-};
-=======
-};*/
->>>>>>> push
