@@ -159,6 +159,23 @@ struct YinshMove3: public Move<YinshMove3>{
 	}
 };
 
+struct Board {
+	uint128_t board = 0;
+
+	Board() {}
+
+	Board(const Board &other) { board = other.board; }
+
+	bool operator==(const Board &other) const { return board == other.board; }
+
+	bool isValid(uint128_t x) const { return (x & 38685626227668133590597631) != 0; }
+};
+
+size_t hash_value(const Board &board) {
+	hash<uint128_t> hash_fn;
+	return hash_fn(board.board);
+}
+
 struct YinshState : public State<YinshState, YinshMove> {
 
 	Board board_1, board_2;
@@ -279,7 +296,7 @@ struct YinshState : public State<YinshState, YinshMove> {
 			auto &rows_formed = pl == PLAYER_1 ? rows_formed_1 : rows_formed_2;
 			rows_formed.clear();
 			for(auto row_mask: all_row_masks) {
-				if(board & row_mask == row_mask) {
+				if(board.board & row_mask == row_mask) {
 					rows_formed.push_back(row_mask);
 				}
 			}
@@ -298,7 +315,7 @@ struct YinshState : public State<YinshState, YinshMove> {
 		if(no_of_rings_placed < 5) {
 			int count = 1;
 			for(uint128_t i = 1; c < 128; i <<= 1) {
-				if(i & board == 0 &&
+				if(i & board.board == 0 &&
 				   board.isValid(i)) {
 					moves.push_back(YinshMove(i));
 				}
@@ -334,17 +351,17 @@ struct YinshState : public State<YinshState, YinshMove> {
 						while(true) {
 							if(next_element[dir].count(ring) > 0) {
 								uint128_t next = next_element[dir][ring];
-								if(board & next == next &&
+								if(board.board & next == next &&
 								   all_rings.count(next) > 0) {
 									break;
 								}
-								else if(board & next == 0) {
+								else if(board.board & next == 0) {
 									moves.push_back(YinshMove(dir, next));
 									if (jump) {
 										break;
 									}
 								}
-								else if(board & next == next &&
+								else if(board.board & next == next &&
 										all_rings.count(next) == 0) {
 									if(!jump) {
 										jump = true;
@@ -390,17 +407,17 @@ struct YinshState : public State<YinshState, YinshMove> {
 		}
 		if(undo) {
 			auto& board = (player_to_move == PLAYER_1) ? board_1 : board_2;
-			board ^= ring_pos;
+			board.board ^= ring_pos;
 		}
 	}
 
 	bool flip_markers(uint128_t ring_pos, uint128_t ring_dest, Board& board) {
 		auto flip_mask = flip_bitmasks[ring_pos][ring_dest];
 		auto& enemy_board = (player_to_move == PLAYER_1) ? board_2 : board_1;
-		auto b1 = board & flip_mask;
-		auto b2 = enemy_board & flip_mask;
-		board = (board & (~flip_mask)) | b2;
-		enemy_board = (enemy_board & (~flip_mask)) | b1;
+		auto b1 = board.board & flip_mask;
+		auto b2 = enemy_board.board & flip_mask;
+		board.board = (board.board & (~flip_mask)) | b2;
+		enemy_board.board = (enemy_board.board & (~flip_mask)) | b1;
 	}
 
 	bool add_ring(uint128_t ring_pos, Board& board) {
@@ -410,7 +427,7 @@ struct YinshState : public State<YinshState, YinshMove> {
 			no_of_rings_placed++;
 		}
 		auto& rings = (player_to_move == PLAYER_1) ? rings_1 : rings_2;
-		board |= ring_pos;
+		board.board |= ring_pos;
 		rings.push_back(ring_pos);
 		std::pair< map<uint128_t, int>::iterator, bool> result;
 		ptr = all_rings.emplace(ring_pos, 1);
@@ -457,7 +474,7 @@ struct YinshState : public State<YinshState, YinshMove> {
 			no_of_rings_removed++;
 		}
 
-		board &= (~kill_mask);
+		board.board &= (~kill_mask);
 	}
 
 	bool add_row_and_ring(std::vector<uint128_t>& rows,
@@ -478,7 +495,7 @@ struct YinshState : public State<YinshState, YinshMove> {
 			no_of_rings_removed--;
 		}
 
-		board |= (save_mask);
+		board.board |= (save_mask);
 		update_rows_formed();
 	}
 
@@ -579,7 +596,15 @@ struct YinshState : public State<YinshState, YinshMove> {
 
 	bool operator==(const YinshState &other) const override {
 		return board_1 == other.board_1 && board_2 == other.board_2 &&
-		       player_to_move == other.player_to_move;
+		       player_to_move == other.player_to_move &&
+		       no_of_markers_remaining == other.no_of_markers_remaining &&
+		       no_of_rings_placed_1 == other.no_of_rings_placed_1 &&
+		       no_of_rings_placed_2 == other.no_of_rings_placed_2 &&
+		       no_of_rings_removed_1 == other.no_of_rings_removed_1 &&
+		       no_of_rings_removed_2 == other.no_of_rings_removed_2 &&
+		       player_to_move == other.player_to_move &&
+		       rings_1 == other.rings_1 && rows_formed_1 == other.rows_formed_1 &&
+		       rings_2 == other.rings_2 && rows_formed_2 == other.rows_formed_2;
 	}
 
 	size_t hash() const {
@@ -593,6 +618,7 @@ struct YinshState : public State<YinshState, YinshMove> {
 		hash_combine(seed, hash_value(no_of_rings_placed_2));
 		hash_combine(seed, hash_value(no_of_rings_removed_1));
 		hash_combine(seed, hash_value(no_of_rings_removed_2));
+		hash_combine(seed, hash_value(player_to_move));
 		for (auto ring_1 : rings_1) {
 			hash_combine(seed, hash_value(ring_1));
 		}
