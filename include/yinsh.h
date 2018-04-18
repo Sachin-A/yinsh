@@ -272,8 +272,8 @@ struct YinshState : public State<YinshState, YinshMove> {
 	}
 
 	int get_goodness() const override {
-		float no_B_markers = countMarkers(board_2);
-		float no_W_markers = countMarkers(board_1);
+		float no_B_markers = countMarkers(board_2.board);
+		float no_W_markers = countMarkers(board_1.board);
 
 		float B_row = board.MarkerScore(B_MARKER,B_RING);
 		float W_row = board.MarkerScore(W_MARKER,W_RING);
@@ -425,9 +425,9 @@ struct YinshState : public State<YinshState, YinshMove> {
 				player_to_move == PLAYER_1 ? no_of_moves1=moves.size() : no_of_moves2=moves.size();
 				return moves;
 			}
+			else {				
 			int flip_marker1=0;
 			int flip_marker2=0;
-			else {
 				for(auto ring: rings) {
 					for (auto dir: all_directions) {
 						bool jump = false;
