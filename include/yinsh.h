@@ -183,6 +183,34 @@ struct YinshState : public State<YinshState, YinshMove> {
 		return clone;
 	}
 
+/*	int get_goodness() const override {
+		if (is_terminal()) {
+			if (is_winner(player_to_move)) {
+				return INT_MAX;
+			} else if (is_winner(get_enemy(player_to_move))) {
+				return INT_MIN;
+			} else {
+				return 0;
+			}
+		}
+
+		int score = get_reserve_value(pieces_left_1) - get_reserve_value(pieces_left_2);
+
+		auto pieces_board_1 = no_of_set_bits(board_1.board);
+		auto pieces_board_2 = no_of_set_bits(board_2.board);
+		score += (pieces_board_1 - pieces_board_2) * 230;
+
+		int pieces_dead_1 = 15 - pieces_left_1 - pieces_board_1;
+		int pieces_dead_2 = 15 - pieces_left_2 - pieces_board_2;
+		score += (pieces_dead_2 - pieces_dead_1) * (pieces_dead_2 + pieces_dead_1) * 10;
+
+		if (player_to_move == PLAYER_2) {
+			score *= -1;
+		}
+
+		return score;
+	}*/
+
 	void get_non_intersecting_rows (
 		std::vector<std::vector<uint128_t> >& choices,
 		int n) {
