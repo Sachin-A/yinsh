@@ -5,19 +5,19 @@
 #include <utility>
 #include <map>
 
-#include "gtsa.hpp"
-#include "utils.h"
-
-typedef __uint128_t uint128_t;
+#include "./uint128.h"
+#include "./mappings.h"
+#include "./gtsa.hpp"
 
 const char PLAYER_1 = '1';
 const char PLAYER_2 = '2';
-
+/*
 enum class Direction {
 	N, S, NE, NW, SE, SW,
 };
 
 Direction all_directions[6] = {N, S, NE, NW, SE, SW};
+*/
 
 /**
  * @brief      Output format for printing different elements
@@ -29,17 +29,66 @@ std::string whiteRingFormat		= "    \033[1;37mR\033[0m    ";
 std::string blackMarkerFormat	= "    \033[1;37;40mM\033[0m    ";
 std::string whiteMarkerFormat	= "    \033[1;37mM\033[0m    ";
 
-struct YinshMove1: public Move<YinshMove1>{
-	int type;
-	uint128_t ring_pos;
+struct YinshMove : public Move<YinshMove> {
+	int type; // 1,2,3
+	uint128_t ring_pos; // type1 uses only this
+    uint128_t ring_dest; // type2 uses ring_pos and ring_dest
+	std::vector<uint128_t> rows; // type3 uses rows and rings
+	std::vector<uint128_t> rings;
 
-	YinshMove1() {}
+    // Constructors - common for all types
+	YinshMove() {}
 
-	YinshMove1(uint128_t ring_pos_) : ring_pos(ring_pos_) {
-		type = 1;
-	}
+	YinshMove(int type_,
+              uint128_t ring_pos_,
+              uint128_t ring_dest_,
+              std::vector<uint128_t> rows_,
+              std::vector<uint128_t> rings_) : type(type_),
+                                               ring_pos(ring_pos_),
+                                               ring_dest(ring_dest_),
+                                               rows(rows_),
+                                               rings(rings_) {
+        // do nothing
+    }
 
-	void read(istream &stream = cin) override {
+    void read(istream &stream = cin) override {
+        if (type == 1)
+            read1(stream);
+        else if (type == 2)
+            read2(stream);
+        else if (type == 3)
+            read3(stream);
+    }
+
+    ostream &to_stream(ostream &os) const override {
+        if (type == 1)
+            return to_stream1(os);
+        if (type == 2)
+            return to_stream2(os);
+
+        return to_stream3(os);
+    }
+
+    bool operator==(const YinshMove &rhs) const override {
+        if (type == 1)
+            return eq1(rhs);
+        if (type == 2)
+            return eq2(rhs);
+
+        return eq3(rhs);
+    }
+
+    size_t hash() const override {
+        if (type == 1)
+            return hash1();
+        if (type == 2)
+            return hash2();
+
+        return hash3();
+    }
+
+    // Type 1 stuff
+	void read1(istream &stream = cin) {
 		if (&stream == &cin) {
 			cout << "Enter X1, Y1 for ring position: ";
 		}
@@ -48,15 +97,15 @@ struct YinshMove1: public Move<YinshMove1>{
 		ring_pos = xytoint(row, column);
 	}
 
-	ostream &to_stream(ostream &os) const override {
+	ostream &to_stream1(ostream &os) const {
 		return os << "Ring destination: " << ring_pos << " and is a type 1 move!\n";
 	}
 
-	bool operator==(const YinshMove1 &rhs) const override {
+	bool eq1(const YinshMove &rhs) const {
 		return ring_pos == rhs.ring_pos;
 	}
 
-	size_t hash() const override {
+	size_t hash1() const {
 		using boost::hash_combine;
 		using boost::hash_value;
 		size_t seed = 0;
@@ -65,17 +114,9 @@ struct YinshMove1: public Move<YinshMove1>{
 		return seed;
 	}
 
-};
 
-struct YinshMove2: public Move<YinshMove2>{
-	int type;
-	uint128_t ring_pos, ring_dest;
-
-	YinshMove2(uint128_t ring_pos_, uint128_t ring_dest_) : ring_pos(ring_pos_), ring_dest(ring_dest_) {
-		type = 2;
-	}
-
-	void read(istream &stream = cin) override {
+    // Type 2 stuff
+	void read2(istream &stream = cin) {
 		if (&stream == &cin) {
 			cout << "Enter X1, Y1 followed by X2, Y2 for ring src and dest: ";
 		}
@@ -85,15 +126,15 @@ struct YinshMove2: public Move<YinshMove2>{
 		ring_dest = xytoint(r2, c2);
 	}
 
-	ostream &to_stream(ostream &os) const override {
+	ostream &to_stream2(ostream &os) const {
 		return os << "Ring src: " << ring_pos << " Ring dest: " << ring_dest << " and is a type 2 move!\n";
 	}
 
-	bool operator==(const YinshMove2 &rhs) const override {
+	bool eq2(const YinshMove &rhs) const {
 		return ring_pos == rhs.ring_pos && ring_dest == rhs.ring_dest;
 	}
 
-	size_t hash() const override {
+	size_t hash2() const {
 		using boost::hash_combine;
 		using boost::hash_value;
 		size_t seed = 0;
@@ -102,49 +143,38 @@ struct YinshMove2: public Move<YinshMove2>{
 		hash_combine(seed, hash_value(ring_dest));
 		return seed;
 	}
-};
 
-struct YinshMove3: public Move<YinshMove3>{
-	int type;
-	std::vector<uint128_t> rows;
-	std::vector<uint128_t> rings;
+    // Type 3 stuff
 
-	YinshMove3(std::vector<uint128_t> rows_, std::vector<uint128_t> rings_) : rows(rows_), rings(rings_) {
-		type = 3;
-	}
-
-	void read(istream &stream = cin) override {
+	void read3(istream &stream = cin) {
+		int no;
 		if (&stream == &cin) {
 			cout << "Enter number of rows/rings";
+            cin >> no;
 		}
-		int no;
-		std::vector<std::vector<std::pair<int, int> > > row_points;
-		std::vector<std::pair<int, int> > ring_points;
+		std::vector<uint128_t> ring_points;
 		int first, second;
 		for(int i = 0; i < no * 5; i++) {
 			cout << "Row: " << (i / no) + 1 << ", Point: " << (i % no) + 1 << "\n";
 			stream >> first >> second;
-			row_points[i].push_back(std::make_pair(first, second));
+			rows[i] |= xytoint(first, second);
 		}
 		for(int i = 0; i < no; i++) {
 			cout << "Ring: " << i + 1 << "\n";
 			stream >> first >> second;
 			rings.push_back(xytoint(first, second));
 		}
-		for(int i = 0; i < no; i++) {
-			rows[i] = xysettoint(row_points[i]);
-		}
 	}
 
-	ostream &to_stream(ostream &os) const override {
+	ostream &to_stream3(ostream &os) const {
 		return os << "Type 3 move!\n";
 	}
 
-	bool operator==(const YinshMove3 &rhs) const override {
+	bool eq3(const YinshMove &rhs) const {
 		return rows == rhs.rows && rings == rhs.rings;
 	}
 
-	size_t hash() const override {
+	size_t hash3() const {
 		using boost::hash_combine;
 		using boost::hash_value;
 		size_t seed = 0;
@@ -236,7 +266,7 @@ struct YinshState : public State<YinshState, YinshMove> {
 		}
 
 		return score;
-	}*/
+	}* /
 
 	void get_non_intersecting_rows (
 		std::vector<std::vector<uint128_t> >& choices,
@@ -537,6 +567,7 @@ struct YinshState : public State<YinshState, YinshMove> {
 		}
 	}
 
+<<<<<<< 19668d3417a363fb12344504b3a8e7cc79d699c0
 	ostream &to_stream(ostream &os) const override {
 		for (int i = 0; i <= 19; i++) {
 			for (int j = 0; j < 11; j++) {
@@ -634,3 +665,8 @@ struct YinshState : public State<YinshState, YinshMove> {
 		return seed;
 	}
 };
+||||||| merged common ancestors
+};
+=======
+};*/
+>>>>>>> push
