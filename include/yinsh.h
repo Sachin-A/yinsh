@@ -89,4 +89,20 @@ struct YinshState : public State<YinshState, YinshMove> {
 		return moves;
 	}
 
+	char get_enemy(char player) const override {
+		return (player == PLAYER_1) ? PLAYER_2 : PLAYER_1;
+	}
+
+	bool is_terminal() const override {
+		return is_winner(player_to_move) ||
+		       is_winner(get_enemy(player_to_move));
+	}
+
+	bool is_winner(char player) const override {
+		int64_t no_of_rings_removed =
+		    (player == PLAYER_1) ? no_of_rings_removed_1 : no_of_rings_removed_2;
+		if (no_of_rings_removed >= 3)
+			return true;
+		return false;
+	}
 };
