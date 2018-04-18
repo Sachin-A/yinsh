@@ -304,7 +304,7 @@ struct YinshState : public State<YinshState, YinshMove> {
 	}
 
 	std::vector<YinshMove> get_legal_moves(int max_moves = INF) const override {
-		auto &board = player_to_move == PLAYER_1 ? board_1 : board_2;
+		auto combined_board = board_1.board | board_2.board;
 		auto &rings = player_to_move == PLAYER_1 ? rings_1 : rings_2;
 		auto &all_rings = player_to_move == PLAYER_1 ? all_rings_1 : all_rings_2;
 		auto &rows_formed = player_to_move == PLAYER_1 ? rows_formed_1 : rows_formed_2;
@@ -315,8 +315,8 @@ struct YinshState : public State<YinshState, YinshMove> {
 		if(no_of_rings_placed < 5) {
 			int count = 1;
 			for(uint128_t i = 1; c < 128; i <<= 1) {
-				if(i & board.board == 0 &&
-				   board.isValid(i)) {
+				if(i & combined_board == 0 &&
+				   board_1.isValid(i)) {
 					moves.push_back(YinshMove(i));
 				}
 			}
@@ -351,17 +351,17 @@ struct YinshState : public State<YinshState, YinshMove> {
 						while(true) {
 							if(next_element[dir].count(ring) > 0) {
 								uint128_t next = next_element[dir][ring];
-								if(board.board & next == next &&
+								if(combined_board & next == next &&
 								   all_rings.count(next) > 0) {
 									break;
 								}
-								else if(board.board & next == 0) {
+								else if(combined_board & next == 0) {
 									moves.push_back(YinshMove(dir, next));
 									if (jump) {
 										break;
 									}
 								}
-								else if(board.board & next == next &&
+								else if(combined_board & next == next &&
 										all_rings.count(next) == 0) {
 									if(!jump) {
 										jump = true;
