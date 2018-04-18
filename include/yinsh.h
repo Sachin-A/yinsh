@@ -2,6 +2,7 @@
 #include <climits>
 #include <cmath>
 #include <string>
+#include <utility>
 #include <map>
 
 #include "gtsa.hpp"
@@ -17,6 +18,136 @@ enum class Direction {
 };
 
 Direction all_directions[6] = {N, S, NE, NW, SE, SW};
+
+struct YinshMove1: public Move<YinshMove1>{
+	int type;
+	uint128_t ring_pos;
+
+	YinshMove1() {}
+
+	YinshMove1(uint128_t ring_pos_) : ring_pos(ring_pos_) {
+		type = 1;
+	}
+
+	void read(istream &stream = cin) override {
+		if (&stream == &cin) {
+			cout << "Enter X1, Y1 for ring position: ";
+		}
+		int row, column;
+		stream >> row >> column;
+		ring_pos = xytoint(row, column);
+	}
+
+	ostream &to_stream(ostream &os) const override {
+		return os << "Ring destination: " << ring_pos << " and is a type 1 move!\n";
+	}
+
+	bool operator==(const YinshMove1 &rhs) const override {
+		return ring_pos == rhs.ring_pos;
+	}
+
+	size_t hash() const override {
+		using boost::hash_combine;
+		using boost::hash_value;
+		size_t seed = 0;
+		hash_combine(seed, hash_value(type));
+		hash_combine(seed, hash_value(ring_pos));
+		return seed;
+	}
+
+};
+
+struct YinshMove2: public Move<YinshMove2>{
+	int type;
+	uint128_t ring_pos, ring_dest;
+
+	YinshMove2(uint128_t ring_pos_, uint128_t ring_dest_) : ring_pos(ring_pos_), ring_dest(ring_dest_) {
+		type = 2;
+	}
+
+	void read(istream &stream = cin) override {
+		if (&stream == &cin) {
+			cout << "Enter X1, Y1 followed by X2, Y2 for ring src and dest: ";
+		}
+		int r1, c1, r2, c2;
+		stream >> r1 >> c1 >> r2 >> c2;
+		ring_pos = xytoint(r1, c1);
+		ring_dest = xytoint(r2, c2);
+	}
+
+	ostream &to_stream(ostream &os) const override {
+		return os << "Ring src: " << ring_pos << " Ring dest: " << ring_dest << " and is a type 2 move!\n";
+	}
+
+	bool operator==(const YinshMove2 &rhs) const override {
+		return ring_pos == rhs.ring_pos && ring_dest == rhs.ring_dest;
+	}
+
+	size_t hash() const override {
+		using boost::hash_combine;
+		using boost::hash_value;
+		size_t seed = 0;
+		hash_combine(seed, hash_value(type));
+		hash_combine(seed, hash_value(ring_pos));
+		hash_combine(seed, hash_value(ring_dest));
+		return seed;
+	}
+};
+
+struct YinshMove3: public Move<YinshMove3>{
+	int type;
+	std::vector<uint128_t> rows;
+	std::vector<uint128_t> rings;
+
+	YinshMove3(std::vector<uint128_t> rows_, std::vector<uint128_t> rings_) : rows(rows_), rings(rings_) {
+		type = 3;
+	}
+
+	void read(istream &stream = cin) override {
+		if (&stream == &cin) {
+			cout << "Enter number of rows/rings";
+		}
+		int no;
+		std::vector<std::vector<std::pair<int, int> > > row_points;
+		std::vector<std::pair<int, int> > ring_points;
+		int first, second;
+		for(int i = 0; i < no * 5; i++) {
+			cout << "Row: " << (i / no) + 1 << ", Point: " << (i % no) + 1 << "\n";
+			stream >> first >> second;
+			row_points[i].push_back(std::make_pair(first, second));
+		}
+		for(int i = 0; i < no; i++) {
+			cout << "Ring: " << i + 1 << "\n";
+			stream >> first >> second;
+			rings.push_back(xytoint(first, second));
+		}
+		for(int i = 0; i < no; i++) {
+			rows[i] = xysettoint(row_points[i]);
+		}
+	}
+
+	ostream &to_stream(ostream &os) const override {
+		return os << "Type 3 move!\n";
+	}
+
+	bool operator==(const YinshMove3 &rhs) const override {
+		return rows == rhs.rows && rings == rhs.rings;
+	}
+
+	size_t hash() const override {
+		using boost::hash_combine;
+		using boost::hash_value;
+		size_t seed = 0;
+		hash_combine(seed, hash_value(type));
+		for (auto row : rows) {
+			hash_combine(seed, hash_value(row));
+		}
+		for (auto ring : rings) {
+			hash_combine(seed, hash_value(ring));
+		}
+		return seed;
+	}
+};
 
 struct YinshState : public State<YinshState, YinshMove> {
 
