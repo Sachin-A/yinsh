@@ -341,4 +341,77 @@ struct YinshState : public State<YinshState, YinshMove> {
 			return true;
 		return false;
 	}
+
+	bool add_ring(uint128_t ring_pos, Board& board) {
+		auto& no_of_rings_placed =
+			(player_to_move == PLAYER_1) ? no_of_rings_placed_1 : no_of_rings_placed_2;
+		if(no_of_rings_placed < 5) {
+			no_of_rings_placed++;
+		}
+		auto& rings = (player_to_move == PLAYER_1) ? rings_1 : rings_2;
+		board |= ring_pos;
+		rings.push_back(ring_pos);
+		std::pair< map<uint128_t, int>::iterator, bool> result;
+		ptr = all_rings.emplace(ring_pos, 1);
+		if (ptr.second) {
+			return true;
+		}
+		else {
+			return false;
+		}
+	}
+
+	bool move_ring(uint128_t ring_pos, uint128_t ring_dest, Board& board) {
+		auto it1 = all_rings.find(ring_pos);
+		all_rings.erase(it);
+		auto& rings = (player_to_move == PLAYER_1) ? rings_1 : rings_2;
+		auto it2 = std::find(rings.begin(), rings.end(), ring_pos);
+		if (it2 != rings.end()) {
+			rings.erase(it2);
+		}
+
+		auto flip_mask = flip_bitmasks[ring_pos][ring_dest];
+		auto& enemy_board = (player_to_move == PLAYER_1) ? board_2 : board_1;
+		auto b1 = board & flip_mask;
+		auto b2 = enemy_board & flip_mask;
+		board = (board & (~flip_mask)) | b2;
+		enemy_board = (enemy_board & (~flip_mask)) | b1;
+
+		add_ring(ring_dest, board);
+	}
+
+	bool remove_row_and_ring(std::vector<uint128_t>& rows,
+							 std::vector<uint128_t>& rings,
+							 Board& board) {
+		kill_mask = 0;
+		for(auto row: rows) {
+			kill_mask |= row;
+		}
+		for(auto ring: rings) {
+			kill_mask |= ring;
+		}
+		board &= (~kill_mask);
+	}
+
+	void make_move(const YinshMove &move) override {
+		auto& board = (player_to_move == PLAYER_1) ? board_1 : board_2;
+		int type = move.type;
+		switch(type) {
+			case 1:		add_ring(move.ring_pos, board);
+						player_to_move = get_enemy(player_to_move);
+						break;
+			case 2: 	move_ring(move.ring_pos, move.ring_dest, board);
+						auto& rows_formed =
+							(player_to_move == PLAYER_1) ? rows_formed_1 : rows_formed_2;
+						if(rows_formed.empty()) {
+							player_to_move = get_enemy(player_to_move);
+						}
+						break;
+			case 3: 	remove_row_and_ring(move.rows, move.rings, board);
+						player_to_move = get_enemy(player_to_move);
+						break;
+			default:	break;
+		}
+	}
+
 };
