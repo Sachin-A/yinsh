@@ -108,6 +108,10 @@ const unordered_map<bitboard_coord_t, sachin_coord_t> bitboard2SachinMap = [] {
     return m;
 }();
 
+bitboard_coord_t xytoint(int x, int y) {
+    return sachin2BitboardMap.find(sachin_coord_t(x,y))->second;
+}
+
 // given start and end location, gives a bitmask with only those bits set which correspond to the positions
 // in between (exclusive) start and end. start and end must be positions where the new marker is being added and where the
 // ring will be placed next respectively
