@@ -8,6 +8,10 @@
 #include "./uint128.h"
 #include "./mappings.h"
 #include "./gtsa.hpp"
+#include "utils.h"
+
+typedef __uint128_t uint128_t;
+
 
 const char PLAYER_1 = '1';
 const char PLAYER_2 = '2';
@@ -259,6 +263,8 @@ struct YinshState : public State<YinshState, YinshMove> {
 
 	int no_of_moves1=0;
 	int no_of_moves2=0;
+	int flip_marker1=0;
+	int flip_marker2=0;
 
 	//Count no of markers
 	float countMarkers(uint128_t b){
@@ -278,16 +284,8 @@ struct YinshState : public State<YinshState, YinshMove> {
 		float B_row = board.MarkerScore(B_MARKER,B_RING);
 		float W_row = board.MarkerScore(W_MARKER,W_RING);
 
-		Element flip_ring;
-		//player hasn't moved yet
-		if(current_player==0){
-			flip_ring=W_RING;
-		}
-		else{
-			flip_ring=B_RING;
-		}	
-		float flip_B_markers = board.FlippedScore(B_MARKER,flip_ring);
-		float flip_W_markers = board.FlippedScore(W_MARKER,flip_ring);
+		float flip_B_markers = flip_marker2;
+		float flip_W_markers = flip_marker1;
 
 		float mobility_B_ring = no_of_moves2;
 		float mobility_W_ring = no_of_moves1;
@@ -390,6 +388,8 @@ struct YinshState : public State<YinshState, YinshMove> {
 		auto &no_of_rings_placed =
 			player_to_move == PLAYER_1 ? no_of_rings_placed_1 : no_of_rings_placed_2;
 
+		int f_marker1=0;
+		int f_marker2=0;
 		std::vector<YinshMove> moves;
 		if(no_of_rings_placed < 5) {
 			int count = 1;
@@ -401,6 +401,8 @@ struct YinshState : public State<YinshState, YinshMove> {
 			}
 			no_of_rings_placed--;
 			player_to_move == PLAYER_1 ? no_of_moves1=moves.size() : no_of_moves2=moves.size();
+			flip_marker1=f_marker1;
+			flip_marker2=f_marker2;
 			return moves;
 		}
 		else {
@@ -423,11 +425,11 @@ struct YinshState : public State<YinshState, YinshMove> {
 					}
 				}
 				player_to_move == PLAYER_1 ? no_of_moves1=moves.size() : no_of_moves2=moves.size();
+				flip_marker1=f_marker1;
+				flip_marker2=f_marker2;
 				return moves;
 			}
 			else {				
-			int flip_marker1=0;
-			int flip_marker2=0;
 				for(auto ring: rings) {
 					for (auto dir: all_directions) {
 						bool jump = false;
@@ -446,6 +448,14 @@ struct YinshState : public State<YinshState, YinshMove> {
 								}
 								else if(combined_board & next == next &&
 										all_rings.count(next) == 0) {
+									if(board1.board & next == next &&
+										all_rings.count(next) == 0){
+										f_marker1++;
+									}
+									if(board2.board & next == next &&
+										all_rings.count(next) == 0){
+										f_marker2++:
+									}
 									if(!jump) {
 										jump = true;
 									}
@@ -459,6 +469,8 @@ struct YinshState : public State<YinshState, YinshMove> {
 				}
 				update_rows_formed();
 				player_to_move == PLAYER_1 ? no_of_moves1=moves.size() : no_of_moves2=moves.size();
+				flip_marker1=f_marker1;
+				flip_marker2=f_marker2;
 				return moves;
 			}
 		}
