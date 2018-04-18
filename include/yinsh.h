@@ -19,6 +19,16 @@ enum class Direction {
 
 Direction all_directions[6] = {N, S, NE, NW, SE, SW};
 
+/**
+ * @brief      Output format for printing different elements
+ */
+std::string blankFormat			= "         ";
+std::string emptyFormat			= "    \033[1;31m*\033[0m    ";
+std::string blackRingFormat		= "    \033[1;30;47mR\033[0m    ";
+std::string whiteRingFormat		= "    \033[1;37mR\033[0m    ";
+std::string blackMarkerFormat	= "    \033[1;37;40mM\033[0m    ";
+std::string whiteMarkerFormat	= "    \033[1;37mM\033[0m    ";
+
 struct YinshMove1: public Move<YinshMove1>{
 	int type;
 	uint128_t ring_pos;
@@ -510,4 +520,91 @@ struct YinshState : public State<YinshState, YinshMove> {
 		}
 	}
 
+	ostream &to_stream(ostream &os) const override {
+		for (int i = 0; i <= 19; i++) {
+			for (int j = 0; j < 11; j++) {
+				if (i == 0) {
+					if (j == 0) {
+						os << "            ";
+					}
+					os << "    " << j << "    ";
+					continue;
+				}
+				if (j == 0) {
+					if (i <= 10) {
+						os << " ";
+					}
+					os << "     " << i - 1 << "     ";
+				}
+				if(xytoint[i-1].count(j) > 0) {
+					uint128_t p = xytoint[i-1][j];
+					if(p & board_1.board) {
+						if(all_rings.count(p) > 0) {
+							os << whiteRingFormat;
+							break;
+						}
+						else {
+							os << whiteMarkerFormat;
+							break;
+						}
+					}
+					else if(p & board_2.board) {
+						if(all_rings.count(p) > 0) {
+							os << blackRingFormat;
+							break;
+						}
+						else {
+							os << blackMarkerFormat;
+							break;
+						}
+					}
+					os << emptyFormat;
+					break;
+				}
+				else {
+					os << blankFormat;
+					break;
+				}
+			}
+			os << "\n\n";
+		}
+		os << "Player to move: " << player_to_move << "\n";
+		os << "Player 1 rings to be placed: " << no_of_rings_placed_1 << "\n";
+		os << "Player 1 rings removed: " << no_of_rings_removed_1 << "\n";
+		os << "Player 2 rings to be placed: " << no_of_rings_placed_2 << "\n";
+		os << "Player 2 rings removed: " << no_of_rings_removed_2 << "\n";
+		os << "Markers remaining: " << no_of_markers_remaining << "\n\n";
+		return os;
+	}
+
+	bool operator==(const YinshState &other) const override {
+		return board_1 == other.board_1 && board_2 == other.board_2 &&
+		       player_to_move == other.player_to_move;
+	}
+
+	size_t hash() const {
+		using boost::hash_combine;
+		using boost::hash_value;
+		size_t seed = 0;
+		hash_combine(seed, hash_value(board_1));
+		hash_combine(seed, hash_value(board_2));
+		hash_combine(seed, hash_value(no_of_markers_remaining));
+		hash_combine(seed, hash_value(no_of_rings_placed_1));
+		hash_combine(seed, hash_value(no_of_rings_placed_2));
+		hash_combine(seed, hash_value(no_of_rings_removed_1));
+		hash_combine(seed, hash_value(no_of_rings_removed_2));
+		for (auto ring_1 : rings_1) {
+			hash_combine(seed, hash_value(ring_1));
+		}
+		for (auto ring_2 : rings_2) {
+			hash_combine(seed, hash_value(ring_2));
+		}
+		for (auto row_1 : rows_formed_1) {
+			hash_combine(seed, hash_value(row_1));
+		}
+		for (auto row_2 : rows_formed_2) {
+			hash_combine(seed, hash_value(row_2));
+		}
+		return seed;
+	}
 };
