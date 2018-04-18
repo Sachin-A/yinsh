@@ -7,7 +7,7 @@
 #include "gtsa.hpp"
 #include "utils.h"
 
-typedef __int128 int128_t;
+typedef __uint128_t uint128_t;
 
 const char PLAYER_1 = '1';
 const char PLAYER_2 = '2';
@@ -21,11 +21,11 @@ Direction all_directions[6] = {N, S, NE, NW, SE, SW};
 struct YinshState : public State<YinshState, YinshMove> {
 
 	Board board_1, board_2;
-	int64_t no_of_markers_remaining;
-	int64_t no_of_rings_placed_1, no_of_rings_placed_2;
-	int64_t no_of_rings_removed_1, no_of_rings_removed_2;
-	std::vector<int128_t> rings_1, rings_2;
-	std::vector<int128_t> rows_formed_1, rows_formed_2;
+	uint64_t no_of_markers_remaining;
+	uint64_t no_of_rings_placed_1, no_of_rings_placed_2;
+	uint64_t no_of_rings_removed_1, no_of_rings_removed_2;
+	std::vector<uint128_t> rings_1, rings_2;
+	std::vector<uint128_t> rows_formed_1, rows_formed_2;
 
 	YinshState() : State(PLAYER_1) {
 		no_of_markers_remaining = 51;
@@ -52,41 +52,109 @@ struct YinshState : public State<YinshState, YinshMove> {
 		return clone;
 	}
 
-	vector<YinshMove> get_legal_moves(int max_moves = INF) const override {
+	// Not handling rings < rows
+	void combinations(int offset, int k,
+					  std::vector<uint128_t>& rings,
+					  std::vector<std::vector<uint128_t> >& all_sets,
+					  std::vector<uint128_t> current_set) {
+		if (k == 0) {
+			all_sets.push_back(current_set);
+			return;
+		}
+		for (int i = offset; i <= rings.size() - k; ++i) {
+			current_set.push_back(rings[i]);
+			combinations(i+1, k-1, rings, all_sets, current_set);
+			current_set.pop_back();
+		}
+	}
+
+	void update_rows_formed() {
+		for(int pl = 1; i <= 2; i++) {
+			auto &board = pl == PLAYER_1 ? board_1 : board_2;
+			auto &rows_formed = pl == PLAYER_1 ? rows_formed_1 : rows_formed_2;
+			rows_formed.clear();
+			for(auto row_mask: all_row_masks) {
+				if(board & row_mask == row_mask) {
+					rows_formed.push_back(row_mask);
+				}
+			}
+		}
+	}
+
+	std::vector<YinshMove> get_legal_moves(int max_moves = INF) const override {
 		auto &board = player_to_move == PLAYER_1 ? board_1 : board_2;
 		auto &rings = player_to_move == PLAYER_1 ? rings_1 : rings_2;
 		auto &all_rings = player_to_move == PLAYER_1 ? all_rings_1 : all_rings_2;
-		vector<YinshMove> moves;
-		for(auto ring: rings) {
-			for (auto dir: all_directions) {
-				bool jump = false;
-				while(true) {
-					if(next_element[dir].isValid(ring) > 0) {
-						int128_t next = next_element[dir][ring];
-						if(board & next == next &&
-						   all_rings.count(next) > 0) {
-							break;
-						}
-						else if(board & next == 0) {
-							moves.push_back(YinshMove(dir, next));
-							if (jump) {
+		auto &rows_formed = player_to_move == PLAYER_1 ? rows_formed_1 : rows_formed_2;
+		auto &no_of_rings_placed =
+			player_to_move == PLAYER_1 ? no_of_rings_placed_1 : no_of_rings_placed_2;
+
+		std::vector<YinshMove> moves;
+		if(no_of_rings_placed < 5) {
+			int count = 1;
+			for(uint128_t i = 1; c < 128; i <<= 1) {
+				if(i & board == 0 &&
+				   board.isValid(i)) {
+					moves.push_back(YinshMove(i));
+				}
+			}
+			no_of_rings_placed--;
+			return moves;
+		}
+		else {
+			if(!rows_formed.empty()) {
+				int k = 0;
+				std::vector<vector<uint128_t> > choices = get_non_intersecting_rows(rows_formed);
+				std::sort(choices.begin(), choices.end(),
+					[](const vector<int> & a, const vector<int> & b){ return a.size() < b.size(); });
+				std::vector<std::vector<uint128_t> > all_sets;
+				std::vector<uint128_t> current_set;
+				for(choice: choices) {
+					if(k != choice.size()) {
+						k = choice.size();
+						all_sets.clear();
+						combinations(0, k, rings, all_sets, current_set);
+					}
+					for(int i = 0; i < all_sets.size(); i++) {
+						moves.push_back(YinshMove(choice, all_sets[i]));
+					}
+				}
+				return moves;
+			}
+			else {
+				for(auto ring: rings) {
+					for (auto dir: all_directions) {
+						bool jump = false;
+						while(true) {
+							if(next_element[dir].count(ring) > 0) {
+								uint128_t next = next_element[dir][ring];
+								if(board & next == next &&
+								   all_rings.count(next) > 0) {
+									break;
+								}
+								else if(board & next == 0) {
+									moves.push_back(YinshMove(dir, next));
+									if (jump) {
+										break;
+									}
+								}
+								else if(board & next == next &&
+										all_rings.count(next) == 0) {
+									if(!jump) {
+										jump = true;
+									}
+								}
+							}
+							else {
 								break;
 							}
-						}
-						else if(board & next == next &&
-								all_rings.count(next) == 0) {
-							if(!jump) {
-								jump = true;
-							}
-						}
+						};
 					}
-					else {
-						break;
-					}
-				};
+				}
+				update_rows_formed();
+				return moves;
 			}
 		}
-		return moves;
 	}
 
 	char get_enemy(char player) const override {
@@ -99,7 +167,7 @@ struct YinshState : public State<YinshState, YinshMove> {
 	}
 
 	bool is_winner(char player) const override {
-		int64_t no_of_rings_removed =
+		uint64_t no_of_rings_removed =
 		    (player == PLAYER_1) ? no_of_rings_removed_1 : no_of_rings_removed_2;
 		if (no_of_rings_removed >= 3)
 			return true;
