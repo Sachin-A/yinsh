@@ -287,23 +287,23 @@ float markerScore(uint128_t b, std::vector<uint128_t> rings){
 		ring_combo|=rings[i];
 	}
 	//N to S rows
-	for (col = 1; col < sachin2BitboardMap.size()-1; col++) {
+	for (col = 1; col < 11-1; col++) {
 		allot=0;
 		row=0;
-		while(sachin2BitboardMap[col][row] & b & ring_combo == 0){
+		while(sachin2BitboardMap.find(sachin_coord_t(row, col))->second & b & ring_combo == 0){
 				row++;
 		}
-		for (; row < sachin2BitboardMap[0].size()
-			||sachin2BitboardMap[col][row] & b & ring_combo == 0; row+=2) {
+		for (; row < 11
+			||sachin2BitboardMap.find(sachin_coord_t(row, col))->second & b & ring_combo == 0; row+=2) {
 
 			
-			if(sachin2BitboardMap[col][row] & b != 0) {
+			if(sachin2BitboardMap.find(sachin_coord_t(row, col))->second & b != 0) {
 				marker_score+=row_weights[allot];
 				if(allot!=4){
 					allot++;
 				}
 			}
-			else if(sachin2BitboardMap[col][row] & ring_combo != 0) {
+			else if(sachin2BitboardMap.find(sachin_coord_t(row, col))->second & ring_combo != 0) {
 				marker_score+=0.5*row_weights[allot];
 				if(allot!=4){
 					allot++;
@@ -321,14 +321,14 @@ float markerScore(uint128_t b, std::vector<uint128_t> rings){
 	//2-5th SE diagonal lines
 	for(int count=0;count<4;count++,row+=SW.x,col+=SW.y){
 		allot=0;
-		for(int a=row,b=col;isValidSachinCoord((a,b));a+=SE.x,b+=SE.y){
-			if(sachin2BitboardMap[col][row] & b != 0) {
+		for(int a=row,b=col;sachin2BitboardMap.count(sachin_coord_t(a, b))>0;a+=SE.x,b+=SE.y){
+			if(sachin2BitboardMap.find(sachin_coord_t(a, b))->second & b != 0) {
 				marker_score+=row_weights[allot];
 				if(allot!=4){
 					allot++;
 				}
 			}
-			else if(sachin2BitboardMap[col][row] & ring_combo != 0) {
+			else if(sachin2BitboardMap.find(sachin_coord_t(a, b))->second & ring_combo != 0) {
 				marker_score+=0.5*row_weights[allot];
 				if(allot!=4){
 					allot++;
@@ -344,22 +344,22 @@ float markerScore(uint128_t b, std::vector<uint128_t> rings){
 	row+=S.x;
 	col+=S.y;
 	allot=0;
-	for(int a=row,b=col;isValidSachinCoord((a,b));a+=SE.x,b+=SE.y){
-		if(sachin2BitboardMap[col][row] & b != 0) {
-			marker_score+=row_weights[allot];
-			if(allot!=4){
-				allot++;
+	for(int a=row,b=col;sachin2BitboardMap.count(sachin_coord_t(a, b))>0;a+=SE.x,b+=SE.y){
+		if(sachin2BitboardMap.find(sachin_coord_t(a, b))->second & b != 0) {
+				marker_score+=row_weights[allot];
+				if(allot!=4){
+					allot++;
+				}
 			}
-		}
-		else if(sachin2BitboardMap[col][row] & ring_combo != 0) {
-			marker_score+=0.5*row_weights[allot];
-			if(allot!=4){
-				allot++;
+			else if(sachin2BitboardMap.find(sachin_coord_t(a, b))->second & ring_combo != 0) {
+				marker_score+=0.5*row_weights[allot];
+				if(allot!=4){
+					allot++;
+				}
 			}
-		}
-		else{
-			allot=0;
-		}
+			else{
+				allot=0;
+			}
 	}
 
 	//Next 4 points with NE and SE lines
@@ -367,14 +367,14 @@ float markerScore(uint128_t b, std::vector<uint128_t> rings){
 	col+=SW.y;
 	for(int count=0;count<4;count++,row+=S.x,col+=S.y){
 		allot=0;
-		for(int a=row,b=col;isValidSachinCoord((a,b));a+=SE.x,b+=SE.y){
-			if(sachin2BitboardMap[col][row] & b != 0) {
+		for(int a=row,b=col;sachin2BitboardMap.count(sachin_coord_t(a, b))>0;a+=SE.x,b+=SE.y){
+			if(sachin2BitboardMap.find(sachin_coord_t(a, b))->second & b != 0) {
 				marker_score+=row_weights[allot];
 				if(allot!=4){
 					allot++;
 				}
 			}
-			else if(sachin2BitboardMap[col][row] & ring_combo != 0) {
+			else if(sachin2BitboardMap.find(sachin_coord_t(a, b))->second & ring_combo != 0) {
 				marker_score+=0.5*row_weights[allot];
 				if(allot!=4){
 					allot++;
@@ -385,14 +385,14 @@ float markerScore(uint128_t b, std::vector<uint128_t> rings){
 			}
 		}
 		allot=0;
-		for(int a=row,b=col;isValidSachinCoord((a,b));a+=NE.x,b+=NE.y){
-			if(sachin2BitboardMap[col][row] & b != 0) {
+		for(int a=row,b=col;sachin2BitboardMap.count(sachin_coord_t(a, b))>0;a+=NE.x,b+=NE.y){
+			if(sachin2BitboardMap.find(sachin_coord_t(a, b))->second & b != 0) {
 				marker_score+=row_weights[allot];
 				if(allot!=4){
 					allot++;
 				}
 			}
-			else if(sachin2BitboardMap[col][row] & ring_combo != 0) {
+			else if(sachin2BitboardMap.find(sachin_coord_t(a, b))->second & ring_combo != 0) {
 				marker_score+=0.5*row_weights[allot];
 				if(allot!=4){
 					allot++;
@@ -408,22 +408,22 @@ float markerScore(uint128_t b, std::vector<uint128_t> rings){
 	row+=SE.x;
 	col+=SE.y;
 	allot=0;
-	for(int a=row,b=col;isValidSachinCoord((a,b));a+=NE.x,b+=NE.y){
-		if(sachin2BitboardMap[col][row] & b != 0) {
-			marker_score+=row_weights[allot];
-			if(allot!=4){
-				allot++;
+	for(int a=row,b=col;sachin2BitboardMap.count(sachin_coord_t(a, b))>0;a+=NE.x,b+=NE.y){
+		if(sachin2BitboardMap.find(sachin_coord_t(a, b))->second & b != 0) {
+				marker_score+=row_weights[allot];
+				if(allot!=4){
+					allot++;
+				}
 			}
-		}
-		else if(sachin2BitboardMap[col][row] & ring_combo != 0) {
-			marker_score+=0.5*row_weights[allot];
-			if(allot!=4){
-				allot++;
+			else if(sachin2BitboardMap.find(sachin_coord_t(a, b))->second & ring_combo != 0) {
+				marker_score+=0.5*row_weights[allot];
+				if(allot!=4){
+					allot++;
+				}
 			}
-		}
-		else{
-			allot=0;
-		}
+			else{
+				allot=0;
+			}
 	}
 
 	// Last 2-5th NE diagonal lines
@@ -431,14 +431,14 @@ float markerScore(uint128_t b, std::vector<uint128_t> rings){
 	col+=S.y;
 	for(int count=0;count<4;count++,row+=SE.x,col+=SE.y){
 		allot=0;
-		for(int a=row,b=col;isValidSachinCoord((a,b));a+=NE.x,b+=NE.y){
-			if(sachin2BitboardMap[col][row] & b != 0) {
+		for(int a=row,b=col;sachin2BitboardMap.count(sachin_coord_t(a, b))>0;a+=NE.x,b+=NE.y){
+			if(sachin2BitboardMap.find(sachin_coord_t(a, b))->second & b != 0) {
 				marker_score+=row_weights[allot];
 				if(allot!=4){
 					allot++;
 				}
 			}
-			else if(sachin2BitboardMap[col][row] & ring_combo != 0) {
+			else if(sachin2BitboardMap.find(sachin_coord_t(a, b))->second & ring_combo != 0) {
 				marker_score+=0.5*row_weights[allot];
 				if(allot!=4){
 					allot++;
