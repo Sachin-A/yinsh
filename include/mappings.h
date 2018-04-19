@@ -192,5 +192,31 @@ const unordered_map<bitboard_coord_t, unordered_map<bitboard_coord_t, bitboard_c
     return m;
 }();
 
+// returns the element following p in d direction: next_element[d][p]
+const unordered_map<sachin_coord_t, unordered_map<bitboard_coord_t, bitboard_coord_t>> next_element = [] {
+    unordered_map<sachin_coord_t, unordered_map<bitboard_coord_t, bitboard_coord_t>> m;
+    
+    for (int i = 0; i < 19; i++) {
+        for (int j = 0; j < 11; j++) {
+            if (sachinCoordsBoard[i][j] != E)
+                continue;
+
+            sachin_coord_t start(i, j);
+            auto start_bb = sachin2BitboardMap.find(start)->second;
+
+            uint128_t bitmask = 0;
+            for (auto dir : directions) {
+                auto next = start + dir;
+
+                while (isValidSachinCoord(next)) {
+                    auto next_bb = sachin2BitboardMap.find(next)->second;
+                    m[dir][start_bb] = next_bb;
+                }
+            }
+        }
+    }
+
+    return m;
+}();
 #endif
 
