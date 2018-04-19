@@ -313,7 +313,7 @@ struct YinshState : public State<YinshState, YinshMove> {
 		}
 	}
 
-	void update_rows_formed() const {
+	void update_rows_formed() {
 		for(int pl = 1; pl <= 2; pl++) {
 			auto &board = pl == PLAYER_1 ? board_1 : board_2;
 			auto &rows_formed = pl == PLAYER_1 ? rows_formed_1 : rows_formed_2;
@@ -373,8 +373,8 @@ struct YinshState : public State<YinshState, YinshMove> {
 					for (auto dir: directions) {
 						bool jump = false;
 						while(true) {
-							if(next_element[dir].count(ring) > 0) {
-								uint128_t next = next_element[dir][ring];
+							if(next_element.find(dir)->second.count(ring) > 0) {
+								uint128_t next = next_element.find(dir)->second.find(ring)->second;
 								if(combined_board & next == next &&
 								   all_rings.count(next) > 0) {
 									break;
@@ -398,7 +398,6 @@ struct YinshState : public State<YinshState, YinshMove> {
 						};
 					}
 				}
-				update_rows_formed();
 				return moves;
 			}
 		}
@@ -541,6 +540,7 @@ struct YinshState : public State<YinshState, YinshMove> {
 			}
 			case 2: 	{
 				move_ring(move.ring_pos, move.ring_dest, board, 0);
+				update_rows_formed();
 				if(rows_formed.empty()) {
 					player_to_move = get_enemy(player_to_move);
 				}
