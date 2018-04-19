@@ -100,6 +100,8 @@ const unordered_map<sachin_coord_t, bitboard_coord_t> sachin2BitboardMap = [] {
     return m;
 }();
 
+std::map<uint128_t, int> all_rings_1, all_rings_2;
+
 const unordered_map<bitboard_coord_t, sachin_coord_t> bitboard2SachinMap = [] {
     unordered_map<bitboard_coord_t, sachin_coord_t> m;
     for (auto it = sachin2BitboardMap.begin(); it != sachin2BitboardMap.end(); it++) {
