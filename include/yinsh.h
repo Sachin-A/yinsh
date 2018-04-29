@@ -8,10 +8,6 @@
 #include "./uint128.h"
 #include "./mappings.h"
 #include "./gtsa.hpp"
-#include "utils.h"
-
-typedef __uint128_t uint128_t;
-
 
 const char PLAYER_1 = '1';
 const char PLAYER_2 = '2';
@@ -91,7 +87,7 @@ struct YinshMove : public Move<YinshMove> {
 		}
 		int row, column;
 		stream >> row >> column;
-		ring_pos = sachin2BitboardMap.find(sachin_coord_t(row, column))->second;
+		ring_pos = xy2bitboard(row, column);
 	}
 
 	ostream &to_stream1(ostream &os) const {
@@ -119,8 +115,8 @@ struct YinshMove : public Move<YinshMove> {
 		}
 		int r1, c1, r2, c2;
 		stream >> r1 >> c1 >> r2 >> c2;
-		ring_pos = sachin2BitboardMap.find(sachin_coord_t(r1, c1))->second;
-		ring_dest = sachin2BitboardMap.find(sachin_coord_t(r2, c2))->second;
+		ring_pos = xy2bitboard(r1, c1);
+		ring_dest = xy2bitboard(r2, c2);
 	}
 
 	ostream &to_stream2(ostream &os) const {
@@ -154,12 +150,12 @@ struct YinshMove : public Move<YinshMove> {
 		for(int i = 0; i < no * 5; i++) {
 			cout << "Row: " << (i / no) + 1 << ", Point: " << (i % no) + 1 << "\n";
 			stream >> first >> second;
-			rows[i] |= sachin2BitboardMap.find(sachin_coord_t(first, second))->second;
+			rows[i] |= xy2bitboard(first, second);
 		}
 		for(int i = 0; i < no; i++) {
 			cout << "Ring: " << i + 1 << "\n";
 			stream >> first >> second;
-			rings.push_back(sachin2BitboardMap.find(sachin_coord_t(first, second))->second);
+			rings.push_back(xy2bitboard(first, second));
 		}
 	}
 
@@ -186,6 +182,30 @@ struct YinshMove : public Move<YinshMove> {
 	}
 };
 
+int __move__count__ = 0;
+// The following are just for readability
+inline YinshMove AddRingMove(uint128_t pos) {
+	//if (__move__count__) {
+		cout << __move__count__ << " AddRing(" << pos << ")\n";
+	//}
+	__move__count__++;
+	return YinshMove(pos);
+}
+inline YinshMove AddMarkerMove(uint128_t src, uint128_t dest) {
+	//if (__move__count__) {
+		cout << __move__count__ << " AddMarker(" << src << "," << dest << ")\n";
+	//}
+	__move__count__++;
+	return YinshMove(src, dest);
+}
+inline YinshMove RemoveRingMove(std::vector<uint128_t> rows, std::vector<uint128_t> rings) {
+	//if (__move__count__) {
+		cout << __move__count__ << " RemoveRing(" << rows[0] << "," << rows.size() << ")\n";
+	//}
+	__move__count__++;
+	return YinshMove(rows, rings);
+}
+
 struct Board {
 	uint128_t board = 0;
 
@@ -209,8 +229,16 @@ struct YinshState : public State<YinshState, YinshMove> {
 	uint64_t no_of_markers_remaining;
 	uint64_t no_of_rings_placed_1, no_of_rings_placed_2;
 	uint64_t no_of_rings_removed_1, no_of_rings_removed_2;
-	std::vector<uint128_t> rings_1, rings_2;
-	std::vector<uint128_t> rows_formed_1, rows_formed_2;
+	std::unordered_map<uint128_t, bool> rings_1, rings_2;
+	std::unordered_map<uint128_t, bool> rows_formed_1, rows_formed_2;
+	std::unordered_map<uint128_t, bool> all_rings;
+
+	// cp stands for current player. These will point to the correct player's variables
+	Board& board_cp;
+	uint64_t& no_of_rings_placed_cp;
+	uint64_t& no_of_rings_removed_cp;
+	std::unordered_map<uint128_t, bool> rings_cp;
+	std::unordered_map<uint128_t, bool> rows_formed_cp;
 
 	YinshState() : State(PLAYER_1) {
 		no_of_markers_remaining = 51;
@@ -234,286 +262,77 @@ struct YinshState : public State<YinshState, YinshMove> {
 		clone.rings_1 = rings_1;
 		clone.rings_2 = rings_2;
 		clone.player_to_move = player_to_move;
+		clone.set_player_vars();
 		return clone;
 	}
 
-	///////////////////////////////////////////////////////////////////////////
-	//Weights
-	std::vector<std::vector<int> > row_weights = {1, 3, 9, 27, 81};
-	int w0=1;
-	int w9=1;
-	int w8=1;
-	int w7=1;
-	int w6=1;
-	int w5=1;
-	int w4=1;
-	int w3=1;
-	int w2=1;
-	int w1=1;
-	int a0=0.5;
-	int b0=0.5;
-	int b1=0.5;
+	void set_player_vars(int pl = -1) {
+		if (pl == -1)
+			pl = player_to_move;
 
-	int no_of_moves1=0;
-	int no_of_moves2=0;
-	int flip_marker1=0;
-	int flip_marker2=0;
-
-	//Count no of markers
-	float countMarkers(uint128_t b){
-		unsigned int marker_count = 0;
-	    while (b)
-	    {
-	      b &= (b-1) ;
-	      marker_count++;
-	    }
-		return (float)marker_count;
-	}
-
-	//Calculate strength of 5 row
-float markerScore(uint128_t b, std::vector<uint128_t> rings){
-	float marker_score=0;
-	int allot=0;
-	int col,row;
-	uint128_t ring_combo=rings[0];
-	for(int i=1;i<rings.size();i++){
-		ring_combo|=rings[i];
-	}
-	//N to S rows
-	for (col = 1; col < 11-1; col++) {
-		allot=0;
-		row=0;
-		while(sachin2BitboardMap.find(sachin_coord_t(row, col))->second & b & ring_combo == 0){
-				row++;
-		}
-		for (; row < 11
-			||sachin2BitboardMap.find(sachin_coord_t(row, col))->second & b & ring_combo == 0; row+=2) {
-
-			
-			if(sachin2BitboardMap.find(sachin_coord_t(row, col))->second & b != 0) {
-				marker_score+=row_weights[allot];
-				if(allot!=4){
-					allot++;
-				}
-			}
-			else if(sachin2BitboardMap.find(sachin_coord_t(row, col))->second & ring_combo != 0) {
-				marker_score+=0.5*row_weights[allot];
-				if(allot!=4){
-					allot++;
-				}
-			}
-			else{
-				allot=0;
-			}
-		}
-		
-	}
-
-	row=0;
-	col=4;
-	//2-5th SE diagonal lines
-	for(int count=0;count<4;count++,row+=SW.x,col+=SW.y){
-		allot=0;
-		for(int a=row,b=col;sachin2BitboardMap.count(sachin_coord_t(a, b))>0;a+=SE.x,b+=SE.y){
-			if(sachin2BitboardMap.find(sachin_coord_t(a, b))->second & b != 0) {
-				marker_score+=row_weights[allot];
-				if(allot!=4){
-					allot++;
-				}
-			}
-			else if(sachin2BitboardMap.find(sachin_coord_t(a, b))->second & ring_combo != 0) {
-				marker_score+=0.5*row_weights[allot];
-				if(allot!=4){
-					allot++;
-				}
-			}
-			else{
-				allot=0;
-			}
+		if (pl == PLAYER_1) {
+			board_cp = board_1;
+			no_of_rings_removed_cp = no_of_rings_placed_1;
+			no_of_rings_removed_cp = no_of_rings_removed_1;
+			rings_cp = rings_1;
+			rows_formed_cp = rows_formed_1;
+		} else {
+			board_cp = board_2;
+			no_of_rings_removed_cp = no_of_rings_placed_2;
+			no_of_rings_removed_cp = no_of_rings_removed_2;
+			rings_cp = rings_2;
+			rows_formed_cp = rows_formed_2;
 		}
 	}
 
-	//Middle SE diagonal line
-	row+=S.x;
-	col+=S.y;
-	allot=0;
-	for(int a=row,b=col;sachin2BitboardMap.count(sachin_coord_t(a, b))>0;a+=SE.x,b+=SE.y){
-		if(sachin2BitboardMap.find(sachin_coord_t(a, b))->second & b != 0) {
-				marker_score+=row_weights[allot];
-				if(allot!=4){
-					allot++;
-				}
-			}
-			else if(sachin2BitboardMap.find(sachin_coord_t(a, b))->second & ring_combo != 0) {
-				marker_score+=0.5*row_weights[allot];
-				if(allot!=4){
-					allot++;
-				}
-			}
-			else{
-				allot=0;
-			}
-	}
+	int get_goodness() const override { return 0; }
 
-	//Next 4 points with NE and SE lines
-	row+=SW.x;
-	col+=SW.y;
-	for(int count=0;count<4;count++,row+=S.x,col+=S.y){
-		allot=0;
-		for(int a=row,b=col;sachin2BitboardMap.count(sachin_coord_t(a, b))>0;a+=SE.x,b+=SE.y){
-			if(sachin2BitboardMap.find(sachin_coord_t(a, b))->second & b != 0) {
-				marker_score+=row_weights[allot];
-				if(allot!=4){
-					allot++;
-				}
-			}
-			else if(sachin2BitboardMap.find(sachin_coord_t(a, b))->second & ring_combo != 0) {
-				marker_score+=0.5*row_weights[allot];
-				if(allot!=4){
-					allot++;
-				}
-			}
-			else{
-				allot=0;
+/*	int get_goodness() const override {
+		if (is_terminal()) {
+			if (is_winner(player_to_move)) {
+				return INT_MAX;
+			} else if (is_winner(get_enemy(player_to_move))) {
+				return INT_MIN;
+			} else {
+				return 0;
 			}
 		}
-		allot=0;
-		for(int a=row,b=col;sachin2BitboardMap.count(sachin_coord_t(a, b))>0;a+=NE.x,b+=NE.y){
-			if(sachin2BitboardMap.find(sachin_coord_t(a, b))->second & b != 0) {
-				marker_score+=row_weights[allot];
-				if(allot!=4){
-					allot++;
-				}
-			}
-			else if(sachin2BitboardMap.find(sachin_coord_t(a, b))->second & ring_combo != 0) {
-				marker_score+=0.5*row_weights[allot];
-				if(allot!=4){
-					allot++;
-				}
-			}
-			else{
-				allot=0;
-			}
-		}
-	}
 
-	//Middle NE diagonal line
-	row+=SE.x;
-	col+=SE.y;
-	allot=0;
-	for(int a=row,b=col;sachin2BitboardMap.count(sachin_coord_t(a, b))>0;a+=NE.x,b+=NE.y){
-		if(sachin2BitboardMap.find(sachin_coord_t(a, b))->second & b != 0) {
-				marker_score+=row_weights[allot];
-				if(allot!=4){
-					allot++;
-				}
-			}
-			else if(sachin2BitboardMap.find(sachin_coord_t(a, b))->second & ring_combo != 0) {
-				marker_score+=0.5*row_weights[allot];
-				if(allot!=4){
-					allot++;
-				}
-			}
-			else{
-				allot=0;
-			}
-	}
+		int score = get_reserve_value(pieces_left_1) - get_reserve_value(pieces_left_2);
 
-	// Last 2-5th NE diagonal lines
-	row+=S.x;
-	col+=S.y;
-	for(int count=0;count<4;count++,row+=SE.x,col+=SE.y){
-		allot=0;
-		for(int a=row,b=col;sachin2BitboardMap.count(sachin_coord_t(a, b))>0;a+=NE.x,b+=NE.y){
-			if(sachin2BitboardMap.find(sachin_coord_t(a, b))->second & b != 0) {
-				marker_score+=row_weights[allot];
-				if(allot!=4){
-					allot++;
-				}
-			}
-			else if(sachin2BitboardMap.find(sachin_coord_t(a, b))->second & ring_combo != 0) {
-				marker_score+=0.5*row_weights[allot];
-				if(allot!=4){
-					allot++;
-				}
-			}
-			else{
-				allot=0;
-			}
-		}
-	}
-	return marker_score;
-}
+		auto pieces_board_1 = no_of_set_bits(board_1.board);
+		auto pieces_board_2 = no_of_set_bits(board_2.board);
+		score += (pieces_board_1 - pieces_board_2) * 230;
 
-	int get_goodness() const override {
-		float no_B_markers = countMarkers(board_2.board);
-		float no_W_markers = countMarkers(board_1.board);
+		int pieces_dead_1 = 15 - pieces_left_1 - pieces_board_1;
+		int pieces_dead_2 = 15 - pieces_left_2 - pieces_board_2;
+		score += (pieces_dead_2 - pieces_dead_1) * (pieces_dead_2 + pieces_dead_1) * 10;
 
-		float B_row = markerScore(board_2.board,ring_2);
-		float W_row = markerScore(board_2.board,ring_1);
-
-		float flip_B_markers = flip_marker2;
-		float flip_W_markers = flip_marker1;
-
-		float mobility_B_ring = no_of_moves2;
-		float mobility_W_ring = no_of_moves1;
-		
-
-		float score= (w0*no_B_markers
-		+ w1*B_row
-		+ w2*flip_B_markers
-		+ w3*mobility_B_ring
-		+ w4*playerBScore)*(a0+b0*playerBScore)
-
-		+ (w5*no_W_markers
-		+ w6*W_row
-		+ w7*flip_W_markers
-		+ w8*mobility_W_ring
-		+ w9*playerAScore)*(a0+b1*playerAScore);
-
-
-
-		/*		
 		if (player_to_move == PLAYER_2) {
 			score *= -1;
-		}*/
+		}
 
 		return score;
-
-	}
-///////////////////////////////////////////////////////////////////////////////////
+	}*/
 
 	void get_non_intersecting_rows (std::vector<std::vector<uint128_t> >& choices) const {
 		for(int i = 0; i < choices.size(); ) {
-			bool split = false;
 			for (int j = 0; j < choices[i].size() - 1; j++) {
 				for (int k = j + 1; k < choices[i].size(); k++) {
 					if((choices[i][j] & choices[i][k]) != 0) {
 						choices.push_back(choices[i]);
+						int last = choices[i].size()-1;
 
-						std::vector<uint128_t>::iterator pos1 = std::find(choices[i].begin(), choices[i].end(), choices[i][k]);
-						if (pos1 != choices[i].end()) {
-							choices[i].erase(pos1);
-						}
-						std::vector<uint128_t>::iterator pos2 = std::find(choices[choices.size() - 1].begin(),
-																	choices[choices.size() - 1].end(), choices[i][j]);
-						if (pos2 != choices[choices.size() - 1].end()) {
-							choices[choices.size() - 1].erase(pos2);
-						}
-						split = true;
-						break;
+						choices[i].erase(choices[i].begin() + k);
+						choices[last].erase(choices[last].begin() + j);
+
+						goto split;
 					}
-					if(split) {
-						break;
-					}
-				}
-				if(split) {
-						break;
 				}
 			}
-			if(!split) {
+			split:
+				continue;
 				i++;
-			}
 		}
 	}
 
@@ -533,15 +352,13 @@ float markerScore(uint128_t b, std::vector<uint128_t> rings){
 		}
 	}
 
-	void update_rows_formed() const {
+	void update_rows_formed() {
 		for(int pl = 1; pl <= 2; pl++) {
-			auto &board = pl == PLAYER_1 ? board_1 : board_2;
-			auto &rows_formed = pl == PLAYER_1 ? rows_formed_1 : rows_formed_2;
 			for(auto& outer_map: five_in_a_row_bitmasks) {
 				for(auto& inner_map: outer_map.second) {
-					if(board.board & inner_map.second == inner_map.second) {
+					if(board_cp.board & inner_map.second == inner_map.second) {
 						uint128_t row_mask = inner_map.second;
-						rows_formed.push_back(row_mask);
+						rows_formed_cp.push_back(row_mask);
 					}
 				}
 			}
@@ -550,100 +367,75 @@ float markerScore(uint128_t b, std::vector<uint128_t> rings){
 
 	std::vector<YinshMove> get_legal_moves(int max_moves = INF) const override {
 		auto combined_board = board_1.board | board_2.board;
-		auto &rings = player_to_move == PLAYER_1 ? rings_1 : rings_2;
-		auto &all_rings = player_to_move == PLAYER_1 ? all_rings_1 : all_rings_2;
-		auto &rows_formed = player_to_move == PLAYER_1 ? rows_formed_1 : rows_formed_2;
-		auto &no_of_rings_placed =
-			player_to_move == PLAYER_1 ? no_of_rings_placed_1 : no_of_rings_placed_2;
 
-		int f_marker1=0;
-		int f_marker2=0;
 		std::vector<YinshMove> moves;
-		if(no_of_rings_placed < 5) {
+		if(no_of_rings_placed_cp < 5) {
 			int count = 1;
-			for(uint128_t i = 1; i < 128; i <<= 1) {
-				if(i & combined_board == 0 &&
+			for(uint128_t i = 1; count < 128; i <<= 1, count++) {
+				auto c1 = i & combined_board;
+				if(c1 == 0 &&
 				   board_1.isValid(i)) {
-					moves.push_back(YinshMove(i));
+					moves.push_back(AddRingMove(i));
 				}
 			}
-			no_of_rings_placed--;
-			player_to_move == PLAYER_1 ? no_of_moves1=moves.size() : no_of_moves2=moves.size();
-			flip_marker1=f_marker1;
-			flip_marker2=f_marker2;
+			return moves;
+		}
+		else if(!rows_formed.empty()) {
+			int k = 0;
+			std::vector<std::vector<uint128_t> > choices = { rows_formed_cp };
+			get_non_intersecting_rows(choices);
+			std::sort(choices.begin(), choices.end(),
+				[](const vector<uint128_t> & a, const vector<uint128_t> & b){ return a.size() < b.size(); });
+			std::vector<std::vector<uint128_t> > all_sets;
+			std::vector<uint128_t> current_set;
+			for(auto& choice: choices) {
+				if(k != choice.size()) {
+					k = choice.size();
+					all_sets.clear();
+					combinations(0, k, rings_cp, all_sets, current_set);
+				}
+				for(int i = 0; i < all_sets.size(); i++) {
+					moves.push_back(RemoveRingMove(choice, all_sets[i]));
+				}
+			}
 			return moves;
 		}
 		else {
-			if(!rows_formed.empty()) {
-				int k = 0;
-				std::vector<std::vector<uint128_t> > choices = { rows_formed };
-				get_non_intersecting_rows(choices);
-				std::sort(choices.begin(), choices.end(),
-					[](const vector<int> & a, const vector<int> & b){ return a.size() < b.size(); });
-				std::vector<std::vector<uint128_t> > all_sets;
-				std::vector<uint128_t> current_set;
-				for(auto& choice: choices) {
-					if(k != choice.size()) {
-						k = choice.size();
-						all_sets.clear();
-						combinations(0, k, rings, all_sets, current_set);
-					}
-					for(int i = 0; i < all_sets.size(); i++) {
-						moves.push_back(YinshMove(choice, all_sets[i]));
-					}
-				}
-				player_to_move == PLAYER_1 ? no_of_moves1=moves.size() : no_of_moves2=moves.size();
-				flip_marker1=f_marker1;
-				flip_marker2=f_marker2;
-				return moves;
-			}
-			else {				
-				for(auto ring: rings) {
-					for (auto dir: directions) {
-						bool jump = false;
-						while(true) {
-							if(next_element[dir].count(ring) > 0) {
-								uint128_t next = next_element[dir][ring];
-								if(combined_board & next == next &&
-								   all_rings.count(next) > 0) {
-									break;
-								}
-								else if(combined_board & next == 0) {
-									moves.push_back(YinshMove(sachin2BitboardMap.find(dir)->second, next));
-									if (jump) {
-										break;
-									}
-								}
-								else if(combined_board & next == next &&
-										all_rings.count(next) == 0) {
-									if(board1.board & next == next &&
-										all_rings.count(next) == 0){
-										f_marker1++;
-									}
-									if(board2.board & next == next &&
-										all_rings.count(next) == 0){
-										f_marker2++:
-									}
-									if(!jump) {
-										jump = true;
-									}
-								}
-							}
-							else {
+			for(auto ring: rings_cp) {
+				for (auto dir: directions) {
+					bool jump = false;
+					while(hasNext(dir, ring)) {
+						auto next = getNext(dir, ring);
+						auto c1 = combined_board & next;
+
+						assert(c1 == 0 || c1 == next); // either the position is occupied, or it isn't.
+
+						// three cases:
+						// 1. location is empty
+						if(c1 == 0) {
+							moves.push_back(AddMarkerMove(ring, next));
+							if (jump) {
 								break;
 							}
-						};
+						}
+						// 2. a ring already exists there
+						else if (c1 == next && all_rings.count(next) > 0) {
+							break;
+						}
+						// 3. a marker already exists there
+						else if(c1 == next && all_rings.count(next) == 0) {
+							if(!jump) {
+								jump = true;
+							}
+						}
+
+						ring = next;
 					}
 				}
-				update_rows_formed();
-				player_to_move == PLAYER_1 ? no_of_moves1=moves.size() : no_of_moves2=moves.size();
-				flip_marker1=f_marker1;
-				flip_marker2=f_marker2;
-				return moves;
 			}
+			return moves;
 		}
 	}
-
 	char get_enemy(char player) const override {
 		return (player == PLAYER_1) ? PLAYER_2 : PLAYER_1;
 	}
@@ -661,18 +453,14 @@ float markerScore(uint128_t b, std::vector<uint128_t> rings){
 		return false;
 	}
 
-	bool remove_ring(uint128_t ring_pos, int undo) {
-		auto &all_rings = player_to_move == PLAYER_1 ? all_rings_1 : all_rings_2;
+	bool remove_ring(uint128_t ring_pos) {
 		auto it1 = all_rings.find(ring_pos);
+		assert(it1 != all_rings.end());
 		all_rings.erase(it1);
-		auto& rings = (player_to_move == PLAYER_1) ? rings_1 : rings_2;
-		auto it2 = std::find(rings.begin(), rings.end(), ring_pos);
+
+		auto it2 = rings_cp.find(ring_pos);
 		if (it2 != rings.end()) {
 			rings.erase(it2);
-		}
-		if(undo) {
-			auto& board = (player_to_move == PLAYER_1) ? board_1 : board_2;
-			board.board ^= ring_pos;
 		}
 	}
 
@@ -686,23 +474,19 @@ float markerScore(uint128_t b, std::vector<uint128_t> rings){
 	}
 
 	bool add_ring(uint128_t ring_pos, Board& board) {
-		auto& no_of_rings_placed =
-			(player_to_move == PLAYER_1) ? no_of_rings_placed_1 : no_of_rings_placed_2;
-		if(no_of_rings_placed < 5) {
-			no_of_rings_placed++;
-		}
-		auto &all_rings = player_to_move == PLAYER_1 ? all_rings_1 : all_rings_2;
-		auto& rings = (player_to_move == PLAYER_1) ? rings_1 : rings_2;
+		assert(no_of_rings_placed_cp < 5);
+		no_of_rings_placed_cp++;
+
 		board.board |= ring_pos;
-		rings.push_back(ring_pos);
-		std::pair< map<uint128_t, int>::iterator, bool> result;
-		result = all_rings.emplace(ring_pos, 1);
-		if (result.second) {
-			return true;
-		}
-		else {
-			return false;
-		}
+		rings_cp[ring_pos] = 1;
+		all_rings[ring_pos] = 1;
+	}
+
+	bool add_ring_undo(uint128_t ring_pos, Board& board) {
+		no_of_rings_placed_cp--;
+		board.board ^= ring_pos;
+		rings_cp.erase(ring_pos);
+		all_rings.erase(ring_pos);
 	}
 
 	bool move_ring(uint128_t ring_pos, uint128_t ring_dest, Board& board, int undo) {
@@ -766,45 +550,43 @@ float markerScore(uint128_t b, std::vector<uint128_t> rings){
 	}
 
 	void make_move(const YinshMove& move) override {
-		auto& board = (player_to_move == PLAYER_1) ? board_1 : board_2;
-		auto &no_of_rings_placed =
-			player_to_move == PLAYER_1 ? no_of_rings_placed_1 : no_of_rings_placed_2;
-		auto& rows_formed =
-			(player_to_move == PLAYER_1) ? rows_formed_1 : rows_formed_2;
+		set_player_vars();
+
 		int type = move.type;
 		switch(type) {
 			case 1:		{
-				add_ring(move.ring_pos, board);
-				no_of_rings_placed--;
+				add_ring(move.ring_pos, board_cp);
 				player_to_move = get_enemy(player_to_move);
 				break;
 			}
 			case 2: 	{
-				move_ring(move.ring_pos, move.ring_dest, board, 0);
+				move_ring(move.ring_pos, move.ring_dest, board_cp, 0);
+				update_rows_formed();
 				if(rows_formed.empty()) {
 					player_to_move = get_enemy(player_to_move);
 				}
 				break;
 			}
 			case 3: 	{
-				remove_row_and_ring(move.rows, move.rings, board);
-				rows_formed.clear();
+				remove_row_and_ring(move.rows, move.rings, board_cp);
+				rows_formed_cp.clear();
 				player_to_move = get_enemy(player_to_move);
 				break;
 			}
-			default:	break;
+			default:	assert(false);
 		}
 	}
 
 	void undo_move(const YinshMove& move) override {
+		player_to_move = get_enemy(player_to_move);
+		set_player_vars();
+
 		auto& board = (player_to_move == PLAYER_1) ? board_1 : board_2;
 		int type = move.type;
 		switch(type) {
 			case 1:		{
 				remove_ring(move.ring_pos, 1);
-				auto& no_of_rings_placed =
-					(player_to_move == PLAYER_1) ? no_of_rings_placed_1 : no_of_rings_placed_2;
-				no_of_rings_placed--;
+				no_of_rings_placed_cp--;
 				break;
 			}
 			case 2: 	{
@@ -818,7 +600,7 @@ float markerScore(uint128_t b, std::vector<uint128_t> rings){
 			default:	break;
 		}
 	}
-  
+
 	ostream &to_stream(ostream &os) const override {
 		for (int i = 0; i <= 19; i++) {
 			for (int j = 0; j < 11; j++) {
@@ -835,8 +617,9 @@ float markerScore(uint128_t b, std::vector<uint128_t> rings){
 					}
 					os << "     " << i - 1 << "     ";
 				}
-				if(sachin2BitboardMap.count(sachin_coord_t(i - 1, j)) > 0) {
-					uint128_t p = sachin2BitboardMap.find(sachin_coord_t(i - 1, j))->second;
+
+				if(isValidXYCoord(xy_coord_t(i - 1, j))) {
+					uint128_t p = xy2bitboard(i - 1, j);
 					if(p & board_1.board) {
 						if(all_rings_1.count(p) > 0) {
 							os << whiteRingFormat;
