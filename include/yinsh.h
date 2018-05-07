@@ -24,12 +24,23 @@ std::string whiteMarkerFormat	= "    \033[1;37mM\033[0m    ";
 
 uint128_t valid_positions = ~uint128_t(0) >> 43;
 
+/*
+	Two types of moves:
+	Type1: AddRing - done in first ten moves
+	Type2: RemoveRowAddMarkerRemoveRow:
+		In your turn, first check if there are rows formed for your color. If so, you've to remove them.
+		Then you've to add a marker.
+		Then if rows are formed for your color, you've to remove them.
+
+		Type2 is a jumbo move, because otherwise the turn-switching logic doesn't work well with Minimax implementation
+		of gtsa.hpp, and also undo becomes a little complex.
+*/
 struct YinshMove : public Move<YinshMove> {
-	int type; // 1,2,3
+	int type; // 1,2
 	uint128_t ring_pos; // type1 uses only this
 	uint128_t ring_dest; // type2 uses ring_pos and ring_dest
-	std::vector<uint128_t> rows; // type3 uses rows and rings
-	std::vector<uint128_t> rings;
+	std::vector<uint128_t> rows1, rows2; // type2 also uses rows1, rings1, row2, rings2
+	std::vector<uint128_t> rings1, rows2;
 
 	// Constructors - common for all types
 	YinshMove() {}
@@ -37,11 +48,13 @@ struct YinshMove : public Move<YinshMove> {
 	YinshMove(uint128_t ring_pos_) : ring_pos(ring_pos_) {
 		type = 1;
 	}
-	YinshMove(uint128_t ring_pos_, uint128_t ring_dest_) : ring_pos(ring_pos_), ring_dest(ring_dest_) {
+	YinshMove(std::vector<uint128_t> rows1_, std::vector<uint128_t> rings1_,
+				uint128_t ring_pos_, uint128_t ring_dest_,
+				std::vector<uint128_t> rows2_, std::vector<uint128_t> rings2_)
+				: rows1(rows1_), rings1(rings1_),
+				  ring_pos(ring_pos_), ring_dest(ring_dest_),
+				  rows2(rows2_), rings2(rings2_) {
 		type = 2;
-	}
-	YinshMove(std::vector<uint128_t> rows_, std::vector<uint128_t> rings_) : rows(rows_), rings(rings_) {
-		type = 3;
 	}
 
 	void read(istream &stream = cin) override {
@@ -49,35 +62,24 @@ struct YinshMove : public Move<YinshMove> {
 			read1(stream);
 		else if (type == 2)
 			read2(stream);
-		else if (type == 3)
-			read3(stream);
 	}
 
 	ostream &to_stream(ostream &os) const override {
 		if (type == 1)
 			return to_stream1(os);
-		if (type == 2)
-			return to_stream2(os);
-
-		return to_stream3(os);
+		return to_stream2(os);
 	}
 
 	bool operator==(const YinshMove &rhs) const override {
 		if (type == 1)
 			return eq1(rhs);
-		if (type == 2)
-			return eq2(rhs);
-
-		return eq3(rhs);
+		return eq2(rhs);
 	}
 
 	size_t hash() const override {
 		if (type == 1)
 			return hash1();
-		if (type == 2)
-			return hash2();
-
-		return hash3();
+		return hash2();
 	}
 
 	// Type 1 stuff
@@ -110,39 +112,11 @@ struct YinshMove : public Move<YinshMove> {
 
 	// Type 2 stuff
 	void read2(istream &stream = cin) {
-		if (&stream == &cin) {
-			cout << "Enter X1, Y1 followed by X2, Y2 for ring src and dest: ";
-		}
-		int r1, c1, r2, c2;
-		stream >> r1 >> c1 >> r2 >> c2;
-		ring_pos = xy2bitboard(r1, c1);
-		ring_dest = xy2bitboard(r2, c2);
-	}
-
-	ostream &to_stream2(ostream &os) const {
-		return os << "Ring src: " << ring_pos << " Ring dest: " << ring_dest << " and is a type 2 move!\n";
-	}
-
-	bool eq2(const YinshMove &rhs) const {
-		return ring_pos == rhs.ring_pos && ring_dest == rhs.ring_dest;
-	}
-
-	size_t hash2() const {
-		using boost::hash_combine;
-		using boost::hash_value;
-		size_t seed = 0;
-		hash_combine(seed, hash_value(type));
-		hash_combine(seed, hash_value(ring_pos));
-		hash_combine(seed, hash_value(ring_dest));
-		return seed;
-	}
-
-	// Type 3 stuff
-
-	void read3(istream &stream = cin) {
 		int no;
+
+		// read rings1, rows1
 		if (&stream == &cin) {
-			cout << "Enter number of rows/rings";
+			cout << "Enter number of rows/rings of your color made by opponent's move";
 			cin >> no;
 		}
 		std::vector<uint128_t> ring_points;
@@ -150,34 +124,77 @@ struct YinshMove : public Move<YinshMove> {
 		for(int i = 0; i < no * 5; i++) {
 			cout << "Row: " << (i / no) + 1 << ", Point: " << (i % no) + 1 << "\n";
 			stream >> first >> second;
-			rows[i] |= xy2bitboard(first, second);
+			rows1[i] |= xy2bitboard(first, second);
 		}
 		for(int i = 0; i < no; i++) {
 			cout << "Ring: " << i + 1 << "\n";
 			stream >> first >> second;
-			rings.push_back(xy2bitboard(first, second));
+			rings1.push_back(xy2bitboard(first, second));
+		}
+
+		// Position of marker, and new position of the ring
+		if (&stream == &cin) {
+			cout << "Enter X1, Y1 followed by X2, Y2 for ring src and dest: ";
+		}
+		int r1, c1, r2, c2;
+		stream >> r1 >> c1 >> r2 >> c2;
+		ring_pos = xy2bitboard(r1, c1);
+		ring_dest = xy2bitboard(r2, c2);
+
+		// read rings2, rows2
+		if (&stream == &cin) {
+			cout << "Enter number of rows/rings of your color made by opponent's move";
+			cin >> no;
+		}
+		std::vector<uint128_t> ring_points;
+		int first, second;
+		for(int i = 0; i < no * 5; i++) {
+			cout << "Row: " << (i / no) + 1 << ", Point: " << (i % no) + 1 << "\n";
+			stream >> first >> second;
+			rows2[i] |= xy2bitboard(first, second);
+		}
+		for(int i = 0; i < no; i++) {
+			cout << "Ring: " << i + 1 << "\n";
+			stream >> first >> second;
+			rings2.push_back(xy2bitboard(first, second));
 		}
 	}
 
-	ostream &to_stream3(ostream &os) const {
-		return os << "Type 3 move!\n";
+	ostream &to_stream2(ostream &os) const {
+		return os << "Move3: Ring src: " << ring_pos << " Ring dest: " << ring_dest << " and is a type 2 move!\n";
 	}
 
-	bool eq3(const YinshMove &rhs) const {
-		return rows == rhs.rows && rings == rhs.rings;
+	bool eq2(const YinshMove &rhs) const {
+		return rows1 == rhs.rows1 && rings1 == rhs.rings1 &&
+				ring_pos == rhs.ring_pos && ring_dest == rhs.ring_dest &&
+				rows1 == rhs.rows1 && rings2 == rhs.rings2;
 	}
 
-	size_t hash3() const {
+	size_t hash2() const {
 		using boost::hash_combine;
 		using boost::hash_value;
 		size_t seed = 0;
+
 		hash_combine(seed, hash_value(type));
-		for (auto row : rows) {
+		for (auto row : rows1) {
 			hash_combine(seed, hash_value(row));
 		}
-		for (auto ring : rings) {
+		for (auto ring : rings1) {
 			hash_combine(seed, hash_value(ring));
 		}
+
+		hash_combine(seed, hash_value(type));
+		hash_combine(seed, hash_value(ring_pos));
+		hash_combine(seed, hash_value(ring_dest));
+
+		hash_combine(seed, hash_value(type));
+		for (auto row : rows2) {
+			hash_combine(seed, hash_value(row));
+		}
+		for (auto ring : rings2) {
+			hash_combine(seed, hash_value(ring));
+		}
+
 		return seed;
 	}
 };
@@ -191,13 +208,18 @@ inline YinshMove AddRingMove(uint128_t pos) {
 	__move__count__++;
 	return YinshMove(pos);
 }
-inline YinshMove AddMarkerMove(uint128_t src, uint128_t dest) {
+inline YinshMove RemoveRowAddMarkerRemoveRow(std::vector<uint128_t> rows1, std::vector<uint128_t> rings1,
+											 uint128_t src, uint128_t dest,
+											 std::vector<uint128_t> rows2, std::vector<uint128_t> rings2) {
 	//if (__move__count__) {
-		cout << __move__count__ << " AddMarker(" << src << "," << dest << ")\n";
+		cout << __move__count__ << " RemoveRing(" << rows1[0] << "," << rows1.size() << ")\t";
+		cout << __move__count__ << " AddMarker(" << src << "," << dest << ")\t";
+		cout << __move__count__ << " RemoveRing(" << rows2[0] << "," << rows2.size() << ")\n";
 	//}
 	__move__count__++;
 	return YinshMove(src, dest);
 }
+/*
 inline YinshMove RemoveRingMove(std::vector<uint128_t> rows, std::vector<uint128_t> rings) {
 	//if (__move__count__) {
 		cout << __move__count__ << " RemoveRing(" << rows[0] << "," << rows.size() << ")\n";
@@ -205,7 +227,7 @@ inline YinshMove RemoveRingMove(std::vector<uint128_t> rows, std::vector<uint128
 	__move__count__++;
 	return YinshMove(rows, rings);
 }
-
+*/
 struct Board {
 	uint128_t board = 0;
 
@@ -240,7 +262,12 @@ struct YinshState : public State<YinshState, YinshMove> {
 	std::unordered_map<uint128_t, bool> rings_cp;
 	std::unordered_map<uint128_t, bool> rows_formed_cp;
 
-	YinshState() : State(PLAYER_1) {
+	YinshState() : State(PLAYER_1),
+				   board_cp(board_1),
+				   no_of_rings_placed_cp(no_of_rings_placed_1),
+				   no_of_rings_removed_cp(no_of_rings_removed_1),
+				   rings_cp(rings_1),
+				   rows_formed_cp(rows_formed_1) {
 		no_of_markers_remaining = 51;
 		no_of_rings_placed_1 = 0;
 		no_of_rings_placed_2 = 0;
@@ -283,6 +310,11 @@ struct YinshState : public State<YinshState, YinshMove> {
 			rings_cp = rings_2;
 			rows_formed_cp = rows_formed_2;
 		}
+	}
+
+	template<class T>
+	T& get_cp_var(T& a, T& b) const {
+		return (player_to_move == PLAYER_1) ? a : b;
 	}
 
 	int get_goodness() const override { return 0; }
@@ -337,32 +369,82 @@ struct YinshState : public State<YinshState, YinshMove> {
 	}
 
 	// Not handling rings < rows
-	void combinations(int offset, int k,
-					  const std::vector<uint128_t>& rings,
-					  std::vector<std::vector<uint128_t> >& all_sets,
-					  std::vector<uint128_t> current_set) const {
+	// need to handle only cases for which k = 1 or 2.
+	// if k = 3, then just return any three rings. This function will be called
+	// only to choose k rings for removing along with k rows. If 3 rows are being removed
+	// we're done anyway
+	auto combinations(int k, const std::unordered_map<uint128_t, bool>& rings) const {
+		std::vector<std::vector<uint128_t>> ret;
 		if (k == 0) {
-			all_sets.push_back(current_set);
-			return;
+			return ret;
 		}
-		for (int i = offset; i <= rings.size() - k; ++i) {
-			current_set.push_back(rings[i]);
-			combinations(i+1, k-1, rings, all_sets, current_set);
-			current_set.pop_back();
+		if (k == 1) {
+			for (auto const& kv : rings) {
+				ret.push_back({ kv.first });
+			}
+			return ret;
 		}
+		if (k == 2) {
+			std::vector<uint128_t> rings_vec;
+			for (auto it = rings.begin(); it != rings.end(); it++) {
+				rings_vec.push_back(it->first);
+			}
+
+			for (int i = 0; i < rings_vec.size(); i++) {
+				for (int j = i+1; j < rings_vec.size(); j++) {
+					ret.push_back({ rings_vec[i], rings_vec[j] });
+				}
+			}
+
+			return ret;
+		}
+		// k > 2? just return one choice, with k rings.
+		ret.push_back(std::vector<uint128_t>());
+		for(auto it = rings.begin(); it != rings.end() && k > 0; it++, k--) {
+			ret[0].push_back(it->first);
+		}
+		return ret;
 	}
 
 	void update_rows_formed() {
-		for(int pl = 1; pl <= 2; pl++) {
-			for(auto& outer_map: five_in_a_row_bitmasks) {
-				for(auto& inner_map: outer_map.second) {
-					if(board_cp.board & inner_map.second == inner_map.second) {
-						uint128_t row_mask = inner_map.second;
-						rows_formed_cp.push_back(row_mask);
-					}
+		rows_formed_cp.clear();
+		for(auto& outer_map: five_in_a_row_bitmasks) {
+			for(auto& inner_map: outer_map.second) {
+				if(board_cp.board & inner_map.second == inner_map.second) {
+					uint128_t row_mask = inner_map.second;
+					rows_formed_cp[row_mask] = true;
 				}
 			}
 		}
+	}
+
+	auto get_row_ring_choices() const {
+		int k = 0;
+
+		std::vector<std::vector<uint128_t> > choices();
+
+		std::vector<std::vector<uint128_t> > row_choices(1);
+		for (const auto& kv: rows_formed_cp) {
+			row_choices[0].push_back(kv.first);
+		}
+
+		get_non_intersecting_rows(row_choices);
+		std::sort(row_choices.begin(), row_choices.end(),
+			[](const vector<uint128_t> & a, const vector<uint128_t> & b){ return a.size() < b.size(); });
+
+		std::vector<std::vector<uint128_t> > all_sets;
+		for(auto& row_choice: row_choices) {
+			if(k != row_choice.size()) {
+				k = row_choice.size();
+				all_sets.clear();
+				//combinations(0, k, rings_cp, all_sets);
+				all_sets = combinations(k, rings_cp);
+			}
+			for(int i = 0; i < all_sets.size(); i++) {
+				moves.push_back(RemoveRingMove(row_choice, all_sets[i]));
+			}
+		}
+		return moves;
 	}
 
 	std::vector<YinshMove> get_legal_moves(int max_moves = INF) const override {
@@ -380,19 +462,31 @@ struct YinshState : public State<YinshState, YinshMove> {
 			}
 			return moves;
 		}
-		else if(!rows_formed.empty()) {
+
+		// calculate the rows formed.
+		// generate all possible places where you can move the ring
+		// calculate the rows formed for each placement of marker-ring pair
+		// permute the rows formed before placing the marker, positions of the marker-ring pair, and rows formed after placing them
+		update_rows_formed();
+
+		else if(!rows_formed_cp.empty()) {
 			int k = 0;
-			std::vector<std::vector<uint128_t> > choices = { rows_formed_cp };
+			std::vector<std::vector<uint128_t> > choices(1);
+			for (const auto& kv: rows_formed_cp) {
+				choices[0].push_back(kv.first);
+			}
+
 			get_non_intersecting_rows(choices);
 			std::sort(choices.begin(), choices.end(),
 				[](const vector<uint128_t> & a, const vector<uint128_t> & b){ return a.size() < b.size(); });
+
 			std::vector<std::vector<uint128_t> > all_sets;
-			std::vector<uint128_t> current_set;
 			for(auto& choice: choices) {
 				if(k != choice.size()) {
 					k = choice.size();
 					all_sets.clear();
-					combinations(0, k, rings_cp, all_sets, current_set);
+					//combinations(0, k, rings_cp, all_sets);
+					all_sets = combinations(k, rings_cp);
 				}
 				for(int i = 0; i < all_sets.size(); i++) {
 					moves.push_back(RemoveRingMove(choice, all_sets[i]));
@@ -401,7 +495,8 @@ struct YinshState : public State<YinshState, YinshMove> {
 			return moves;
 		}
 		else {
-			for(auto ring: rings_cp) {
+			for(const auto& ringkv: rings_cp) {
+				auto ring = ringkv.first;
 				for (auto dir: directions) {
 					bool jump = false;
 					while(hasNext(dir, ring)) {
@@ -446,27 +541,15 @@ struct YinshState : public State<YinshState, YinshMove> {
 	}
 
 	bool is_winner(char player) const override {
-		uint64_t no_of_rings_removed =
-			(player == PLAYER_1) ? no_of_rings_removed_1 : no_of_rings_removed_2;
+		uint64_t no_of_rings_removed = get_cp_var(no_of_rings_removed_1, no_of_rings_removed_2);
 		if (no_of_rings_removed >= 3)
 			return true;
 		return false;
 	}
 
-	bool remove_ring(uint128_t ring_pos) {
-		auto it1 = all_rings.find(ring_pos);
-		assert(it1 != all_rings.end());
-		all_rings.erase(it1);
-
-		auto it2 = rings_cp.find(ring_pos);
-		if (it2 != rings.end()) {
-			rings.erase(it2);
-		}
-	}
-
 	bool flip_markers(uint128_t ring_pos, uint128_t ring_dest, Board& board) {
 		auto flip_mask = flip_bitmasks.find(ring_pos)->second.find(ring_dest)->second;
-		auto& enemy_board = (player_to_move == PLAYER_1) ? board_2 : board_1;
+		auto& enemy_board = get_cp_var(board_2, board_1);
 		auto b1 = board.board & flip_mask;
 		auto b2 = enemy_board.board & flip_mask;
 		board.board = (board.board & (~flip_mask)) | b2;
@@ -475,34 +558,27 @@ struct YinshState : public State<YinshState, YinshMove> {
 
 	bool add_ring(uint128_t ring_pos, Board& board) {
 		assert(no_of_rings_placed_cp < 5);
-		no_of_rings_placed_cp++;
+		assert(rings_cp.find(ring_pos) != rings_cp.end());
+		assert(all_rings.find(ring_pos) != all_rings.end());
+		assert(board.board & ring_pos == 0);
 
 		board.board |= ring_pos;
 		rings_cp[ring_pos] = 1;
 		all_rings[ring_pos] = 1;
 	}
 
-	bool add_ring_undo(uint128_t ring_pos, Board& board) {
-		no_of_rings_placed_cp--;
-		board.board ^= ring_pos;
+	bool remove_ring(uint128_t ring_pos) {
+		assert(rings_cp.find(ring_pos) != rings_cp.end());
+		assert(all_rings.find(ring_pos) != all_rings.end());
+
 		rings_cp.erase(ring_pos);
 		all_rings.erase(ring_pos);
 	}
 
-	bool move_ring(uint128_t ring_pos, uint128_t ring_dest, Board& board, int undo) {
-
-		remove_ring(ring_pos, undo);
-
+	bool move_ring(uint128_t ring_pos, uint128_t ring_dest, Board& board) {
+		remove_ring(ring_pos);
 		flip_markers(ring_pos, ring_dest, board);
-
 		add_ring(ring_dest, board);
-
-		if(undo) {
-			no_of_markers_remaining++;
-		}
-		else {
-			no_of_markers_remaining--;
-		}
 	}
 
 	bool remove_row_and_ring(const std::vector<uint128_t>& rows,
@@ -510,17 +586,16 @@ struct YinshState : public State<YinshState, YinshMove> {
 							 Board& board) {
 		uint128_t kill_mask = 0;
 
-		auto &rows_formed = player_to_move == PLAYER_1 ? rows_formed_1 : rows_formed_2;
+		auto &rows_formed = get_cp_var(rows_formed_1, rows_formed_2);
 		rows_formed.clear();
 		for(auto row: rows) {
 			kill_mask |= row;
 		}
 
-		auto &no_of_rings_removed =
-			player_to_move == PLAYER_1 ? no_of_rings_removed_1 : no_of_rings_removed_2;
+		auto &no_of_rings_removed = get_cp_var(no_of_rings_removed_1, no_of_rings_removed_2);
 		for(auto ring: rings) {
 			kill_mask |= ring;
-			remove_ring(ring, 0);
+			remove_ring(ring);
 			no_of_rings_removed++;
 		}
 
@@ -532,13 +607,12 @@ struct YinshState : public State<YinshState, YinshMove> {
 						  Board& board) {
 		uint128_t save_mask = 0;
 
-		auto &rows_formed = player_to_move == PLAYER_1 ? rows_formed_1 : rows_formed_2;
+		auto &rows_formed = get_cp_var(rows_formed_1, rows_formed_2);
 		for(auto row: rows) {
 			save_mask |= row;
 		}
 
-		auto &no_of_rings_removed =
-			player_to_move == PLAYER_1 ? no_of_rings_removed_1 : no_of_rings_removed_2;
+		auto &no_of_rings_removed = get_cp_var(no_of_rings_removed_1, no_of_rings_removed_2);
 		for(auto ring: rings) {
 			save_mask |= ring;
 			add_ring(ring, board);
@@ -556,19 +630,22 @@ struct YinshState : public State<YinshState, YinshMove> {
 		switch(type) {
 			case 1:		{
 				add_ring(move.ring_pos, board_cp);
+				no_of_rings_placed_cp++;
 				player_to_move = get_enemy(player_to_move);
 				break;
 			}
 			case 2: 	{
-				move_ring(move.ring_pos, move.ring_dest, board_cp, 0);
+				move_ring(move.ring_pos, move.ring_dest, board_cp);
+				no_of_markers_remaining--;
 				update_rows_formed();
-				if(rows_formed.empty()) {
+				if(rows_formed_cp.empty()) {
 					player_to_move = get_enemy(player_to_move);
 				}
 				break;
 			}
 			case 3: 	{
 				remove_row_and_ring(move.rows, move.rings, board_cp);
+				no_of_rings_removed_cp++;
 				rows_formed_cp.clear();
 				player_to_move = get_enemy(player_to_move);
 				break;
@@ -581,23 +658,33 @@ struct YinshState : public State<YinshState, YinshMove> {
 		player_to_move = get_enemy(player_to_move);
 		set_player_vars();
 
-		auto& board = (player_to_move == PLAYER_1) ? board_1 : board_2;
+		auto& board = get_cp_var(board_1, board_2);
 		int type = move.type;
 		switch(type) {
 			case 1:		{
-				remove_ring(move.ring_pos, 1);
+				remove_ring(move.ring_pos);
 				no_of_rings_placed_cp--;
 				break;
 			}
 			case 2: 	{
-				move_ring(move.ring_dest, move.ring_pos, board, 1);
+				// this part is tricky
+				const auto rows_formed_enemy = get_cp_var(rows_formed_2, rows_formed_1);
+				if(rows_formed_enemy.empty()) {
+					player_to_move = get_enemy(player_to_move);
+				}
+				move_ring(move.ring_dest, move.ring_pos, board);
+				no_of_markers_remaining++;
+				update_rows_formed();
 				break;
 			}
 			case 3: 	{
 				add_row_and_ring(move.rows, move.rings, board);
+				no_of_rings_removed_cp--;
+				update_rows_formed();
+				player_to_move = get_enemy(player_to_move);
 				break;
 			}
-			default:	break;
+			default:	assert(false);
 		}
 	}
 
@@ -621,7 +708,7 @@ struct YinshState : public State<YinshState, YinshMove> {
 				if(isValidXYCoord(xy_coord_t(i - 1, j))) {
 					uint128_t p = xy2bitboard(i - 1, j);
 					if(p & board_1.board) {
-						if(all_rings_1.count(p) > 0) {
+						if(rings_1.count(p) > 0) {
 							os << whiteRingFormat;
 							break;
 						}
@@ -631,7 +718,7 @@ struct YinshState : public State<YinshState, YinshMove> {
 						}
 					}
 					else if(p & board_2.board) {
-						if(all_rings_2.count(p) > 0) {
+						if(rings_2.count(p) > 0) {
 							os << blackRingFormat;
 							break;
 						}
