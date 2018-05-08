@@ -685,6 +685,9 @@ struct MonteCarloTreeSearch : public Algorithm<S, M> {
         const auto current_player = state->player_to_move;
         const auto legal_moves = state->get_legal_moves();
         S clone = state->clone();
+        if (legal_moves.size() == 0) {
+            cout << "FAILING \n" << clone;
+        }
         assert(legal_moves.size() > 0);
         for (const M &move : legal_moves) {
             clone.make_move(move);

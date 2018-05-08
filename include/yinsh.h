@@ -229,6 +229,8 @@ inline YinshMove RemoveRingMove(std::vector<uint128_t> rows, std::vector<uint128
 struct Board {
 	uint128_t board = 0;
 
+	int no_markers = 0;
+
 	std::unordered_map<uint128_t, bool> rings;
 
 	Board() {}
@@ -271,6 +273,7 @@ struct Board {
 		// TODO: assert(all_rings.find(marker_pos) != all_rings.end());
 		//all_rings[ring_pos] = 1;
 		board |= marker_pos;
+		no_markers++;
 	}
 
 	// asserts that there _isn't_ a ring at marker_pos
@@ -279,6 +282,7 @@ struct Board {
 		// TODO: assert(all_rings.find(marker_pos) == all_rings.end());
 
 		board &= (~marker_pos);
+		no_markers--;
 	}
 
 	bool remove_row_and_ring(const std::vector<uint128_t>& rows,
@@ -348,6 +352,10 @@ struct YinshState : public State<YinshState, YinshMove> {
 	uint64_t no_of_rings_removed_1, no_of_rings_removed_2;
 	std::unordered_map<uint128_t, bool> all_rings;
 
+	vector<YinshMove> legal_moves_cache;
+	bool legal_moves_cache_isvalid;
+
+
 	// cp stands for current player. These will point to the correct player's variables
 	//Board& board_cp;
 	//uint64_t& no_of_rings_placed_cp;
@@ -364,6 +372,7 @@ struct YinshState : public State<YinshState, YinshMove> {
 		no_of_rings_placed_2 = 0;
 		no_of_rings_removed_1 = 0;
 		no_of_rings_removed_2 = 0;
+		legal_moves_cache_isvalid = false;
 	}
 
 	/*YinshState (const YinshState &other) override {
@@ -389,6 +398,8 @@ struct YinshState : public State<YinshState, YinshMove> {
 		no_of_rings_removed_1 = other.no_of_rings_removed_1;
 		no_of_rings_removed_2 = other.no_of_rings_removed_2;
 		player_to_move = other.player_to_move;
+		legal_moves_cache = other.legal_moves_cache;
+		legal_moves_cache_isvalid = other.legal_moves_cache_isvalid;
 		//set_player_vars();
 	}
 
@@ -402,6 +413,8 @@ struct YinshState : public State<YinshState, YinshMove> {
 		clone.no_of_rings_removed_1 = no_of_rings_removed_1;
 		clone.no_of_rings_removed_2 = no_of_rings_removed_2;
 		clone.player_to_move = player_to_move;
+		clone.legal_moves_cache = legal_moves_cache;
+		clone.legal_moves_cache_isvalid = legal_moves_cache_isvalid;
 		//clone.set_player_vars();
 		return clone;
 	}
@@ -427,8 +440,6 @@ struct YinshState : public State<YinshState, YinshMove> {
 	T& get_cp_var(T& a, T& b) const {
 		return (player_to_move == PLAYER_1) ? a : b;
 	}*/
-
-	int get_goodness() const override { return rand() % 100; }
 
 /*	int get_goodness() const override {
 		if (is_terminal()) {
@@ -579,6 +590,10 @@ struct YinshState : public State<YinshState, YinshMove> {
 
 	std::vector<YinshMove> get_legal_moves(int max_moves = INF) const override {
 //		cout << "Have to get legal moves\n";
+		//if (legal_moves_cache_isvalid) {
+		//	return legal_moves_cache;
+		//}
+
 		auto combined_board = board_1.board | board_2.board;
 
 		std::vector<YinshMove> moves;
@@ -593,6 +608,8 @@ struct YinshState : public State<YinshState, YinshMove> {
 				}
 			}
 //			cout << "Done get_legal_moves1\n";
+//			legal_moves_cache = moves;
+//			legal_moves_cache_isvalid = true;
 			return moves;
 		}
 
@@ -673,15 +690,31 @@ struct YinshState : public State<YinshState, YinshMove> {
 		}
 
 //		cout << "Done get_legal_moves2\n";
+		//legal_moves_cache = moves;
+		//legal_moves_cache_isvalid = true;
 		return moves;
 	}
+
+	int get_goodness() const override {
+		if (player_to_move == PLAYER_1) {
+			return no_of_rings_removed_1 - no_of_rings_removed_2
+					+ get_rows_formed(board_1).size() * 2 - get_rows_formed(board_2).size() * 2;
+		} else {
+			return no_of_rings_removed_2 - no_of_rings_removed_1
+					+ get_rows_formed(board_2).size() * 2 - get_rows_formed(board_1).size() * 2;
+		}
+		return rand() % 100;
+	}
+
 	char get_enemy(char player) const override {
 		return (player == PLAYER_1) ? PLAYER_2 : PLAYER_1;
 	}
 
 	bool is_terminal() const override {
 		return is_winner(player_to_move) ||
-			   is_winner(get_enemy(player_to_move));
+			   is_winner(get_enemy(player_to_move)) ||
+			   no_of_markers_remaining == 0 ||
+			   get_legal_moves().size() == 0;
 	}
 
 	bool is_winner(char player) const override {
@@ -694,6 +727,8 @@ struct YinshState : public State<YinshState, YinshMove> {
 
 	void make_move(const YinshMove& move) override {
 		//cout << "gotta make move\n";
+		legal_moves_cache_isvalid = false;
+
 		auto& board_cp = (player_to_move == PLAYER_1 ? board_1 : board_2);
 		auto& board_enemy = (player_to_move == PLAYER_1 ? board_2 : board_1);
 
