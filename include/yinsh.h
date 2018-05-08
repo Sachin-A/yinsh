@@ -291,7 +291,7 @@ struct Board {
 
 		for(auto ring: rings) {
 			kill_mask |= ring;
-			cout << "remove row and ring\n";
+		//	cout << "remove row and ring\n";
 			remove_ring(ring);
 		}
 
@@ -428,7 +428,7 @@ struct YinshState : public State<YinshState, YinshMove> {
 		return (player_to_move == PLAYER_1) ? a : b;
 	}*/
 
-	int get_goodness() const override { return 0; }
+	int get_goodness() const override { return rand() % 100; }
 
 /*	int get_goodness() const override {
 		if (is_terminal()) {
@@ -519,10 +519,13 @@ struct YinshState : public State<YinshState, YinshMove> {
 
 	auto get_rows_formed(const Board& board) const {
 		std::unordered_map<uint128_t, bool> rows_formed;
+		auto bitboard = board.board;
+		for (const auto& kv : board.rings)
+			bitboard &= (~kv.first);
 
 		for(auto& outer_map: five_in_a_row_bitmasks) {
 			for(auto& inner_map: outer_map.second) {
-				auto c1 = board.board & inner_map.second;
+				auto c1 = bitboard & inner_map.second;
 				if(c1 == inner_map.second) {
 					uint128_t row_mask = inner_map.second;
 					rows_formed[row_mask] = true;
@@ -538,14 +541,16 @@ struct YinshState : public State<YinshState, YinshMove> {
 	// returns a vector of pairs. Each pair is (row_choice, ring_choice)
 	// where row_choice and ring_choice is a vector. Each pair denotes a valid RemoveRingMove
 	// row_choice.size() == ring_choice.size();
-	auto get_ring_row_choices(std::unordered_map<uint128_t, bool> rows_formed) const {
+	auto get_ring_row_choices(const Board& board, std::unordered_map<uint128_t, bool> rows_formed) const {
 		int k = 0;
 
 		// default value is a choice
-		ring_row_choices_t choices = { make_pair(vector<uint128_t>(), vector<uint128_t>()) };
+		ring_row_choices_t choices;
 
-		if (rows_formed.size() == 0)
+		if (rows_formed.size() == 0) {
+			choices = { make_pair(vector<uint128_t>(), vector<uint128_t>()) };
 			return choices;
+		}
 
 		std::vector<std::vector<uint128_t> > row_choices(1);
 		for (const auto& kv: rows_formed) {
@@ -562,7 +567,7 @@ struct YinshState : public State<YinshState, YinshMove> {
 				k = row_choice.size();
 				all_sets.clear();
 				//combinations(0, k, rings_cp, all_sets);
-				all_sets = combinations(k, (player_to_move == PLAYER_1 ? board_1.rings : board_2.rings));
+				all_sets = combinations(k, board.rings);
 			}
 			for(int i = 0; i < all_sets.size(); i++) {
 				choices.push_back(make_pair(all_sets[i], row_choice));
@@ -596,70 +601,73 @@ struct YinshState : public State<YinshState, YinshMove> {
 		// calculate the rows formed for each placement of marker-ring pair
 		// permute the rows formed before placing the marker, positions of the marker-ring pair, and rows formed after placing them
 		auto rows_formed = get_rows_formed((player_to_move == PLAYER_1 ? board_1 : board_2));
-		const ring_row_choices_t ring_row_choices_before = get_ring_row_choices(rows_formed);
+		const ring_row_choices_t ring_row_choices_before = get_ring_row_choices((player_to_move == PLAYER_1 ? board_1 : board_2), rows_formed);
 		std::vector<std::pair<uint128_t, uint128_t> > marker_moves;
 
-		// for each ring check in all directions - check wherever the ring can move to
-		// for each such possible position, we can get a move by
-		for(const auto& ringkv: (player_to_move == PLAYER_1 ? board_1.rings : board_2.rings)) {
-			for (auto dir: directions) {
-				auto ring = ringkv.first;
-				bool jump = false;
-				while(hasNext(dir, ring)) {
-					auto next = getNext(dir, ring);
-					auto c1 = combined_board & next;
+		for (auto& old_ring_row_choice : ring_row_choices_before) {
+			// for each ring check in all directions - check wherever the ring can move to
+			// for each such possible position, we can get a move by
+			auto board_copy = (player_to_move == PLAYER_1 ? board_1 : board_2);
+			auto enemy_board_copy = (player_to_move == PLAYER_1 ? board_2 : board_1);
+			board_copy.remove_row_and_ring(old_ring_row_choice.second, old_ring_row_choice.first);
 
-					assert(c1 == 0 || c1 == next); // either the position is occupied, or it isn't.
+			for(const auto& ringkv: board_copy.rings) {
+				for (auto dir: directions) {
+					auto ring = ringkv.first;
+					bool jump = false;
+					while(hasNext(dir, ring)) {
+						auto next = getNext(dir, ring);
+						auto c1 = combined_board & next;
 
-					// three cases:
-					// 1. location is empty
-					if(c1 == 0) {
-						marker_moves.push_back(make_pair(ringkv.first, next));
-						if (jump) {
+						assert(c1 == 0 || c1 == next); // either the position is occupied, or it isn't.
+
+						// three cases:
+						// 1. location is empty
+						if(c1 == 0) {
+							// markermove is (ringkv.first, next);
+							//cout << "simulating remove_ring\n";
+							auto board_copy2 = board_copy;
+							auto enemy_board_copy2 = (player_to_move == PLAYER_1 ? board_2 : board_1);
+							board_copy2.remove_ring(ringkv.first);
+							board_copy2.add_marker(ringkv.first);
+							//cout << "simulated remove_ring\n";
+			//				cout << "Might fail for " << marker_move.first << " " << marker_move.second << "\n";
+							flip_markers(ringkv.first, next, board_copy2, enemy_board_copy2);
+							board_copy2.add_ring(next);
+
+							auto new_rows_formed = get_rows_formed(board_copy2);
+							auto new_ring_row_choices = get_ring_row_choices(board_copy2, new_rows_formed);
+
+							for (auto& new_ring_row_choice: new_ring_row_choices) {
+								moves.push_back(
+									RemoveRowAddMarkerRemoveRow(
+										old_ring_row_choice.second,
+										old_ring_row_choice.first,
+										ringkv.first,
+										next,
+										new_ring_row_choice.second,
+										new_ring_row_choice.first
+									)
+								);
+							}
+
+							if (jump) {
+								break;
+							}
+						}
+						// 2. a ring already exists there
+						else if (c1 == next && (board_copy.rings.count(next) > 0 || enemy_board_copy.rings.count(next) > 0)) {
 							break;
 						}
-					}
-					// 2. a ring already exists there
-					else if (c1 == next && (board_1.rings.count(next) > 0 || board_2.rings.count(next) > 0)) {
-						break;
-					}
-					// 3. a marker already exists there
-					else if(c1 == next && (board_1.rings.count(next) == 0 && board_2.rings.count(next) == 0)) {
-						if(!jump) {
-							jump = true;
+						// 3. a marker already exists there
+						else if(c1 == next && (board_copy.rings.count(next) == 0 && enemy_board_copy.rings.count(next) == 0)) {
+							if(!jump) {
+								jump = true;
+							}
 						}
+
+						ring = next;
 					}
-
-					ring = next;
-				}
-			}
-		}
-
-		for (auto& old_ring_row_choice : ring_row_choices_before) {
-			for (auto& marker_move: marker_moves) {
-				auto board_copy = (player_to_move == PLAYER_1 ? board_1 : board_2);
-				auto enemy_board_copy = (player_to_move == PLAYER_1 ? board_2 : board_1);
-				cout << "simulating remove_ring\n";
-				board_copy.remove_ring(marker_move.first);
-				cout << "simulated remove_ring\n";
-//				cout << "Might fail for " << marker_move.first << " " << marker_move.second << "\n";
-				flip_markers(marker_move.first, marker_move.second, board_copy, enemy_board_copy);
-				board_copy.add_ring(marker_move.second);
-
-				auto new_rows_formed = get_rows_formed(board_copy);
-				auto new_ring_row_choices = get_ring_row_choices(new_rows_formed);
-
-				for (auto& new_ring_row_choice: new_ring_row_choices) {
-					moves.push_back(
-						RemoveRowAddMarkerRemoveRow(
-							old_ring_row_choice.second,
-							old_ring_row_choice.first,
-							marker_move.first,
-							marker_move.second,
-							new_ring_row_choice.second,
-							new_ring_row_choice.first
-						)
-					);
 				}
 			}
 		}
@@ -687,6 +695,7 @@ struct YinshState : public State<YinshState, YinshMove> {
 	void make_move(const YinshMove& move) override {
 		//cout << "gotta make move\n";
 		auto& board_cp = (player_to_move == PLAYER_1 ? board_1 : board_2);
+		auto& board_enemy = (player_to_move == PLAYER_1 ? board_2 : board_1);
 
 		int type = move.type;
 		switch(type) {
@@ -700,14 +709,15 @@ struct YinshState : public State<YinshState, YinshMove> {
 			case 2: 	{
 //				cout << "Move2" << "\n";
 				board_cp.remove_row_and_ring(move.rows1, move.rings1);
-				cout << "making move row and ring\n";
+//				cout << "making move row and ring\n";
 				board_cp.remove_ring(move.ring_pos);
-				cout << "made move move row and ring\n";
+//				cout << "made move move row and ring\n";
 				board_cp.add_marker(move.ring_pos); // do it after remove_ring!
 				board_cp.add_ring(move.ring_dest);
+				flip_markers(move.ring_pos, move.ring_dest, board_cp, board_enemy);
 				board_cp.remove_row_and_ring(move.rows2, move.rings2);
-				cout << "made made move row and ring\n";
-				no_of_markers_remaining--;
+//				cout << "made made move row and ring\n";
+				no_of_markers_remaining = no_of_markers_remaining - 1 + 5 * (move.rows1.size() + move.rows2.size());
 				if (player_to_move == PLAYER_1)
 					no_of_rings_removed_1 += move.rows1.size() + move.rows2.size();
 				else
@@ -725,6 +735,7 @@ struct YinshState : public State<YinshState, YinshMove> {
 		//cout << "gotta undo move\n";
 		player_to_move = get_enemy(player_to_move);
 		auto& board_cp = (player_to_move == PLAYER_1 ? board_1 : board_2);
+		auto& board_enemy = (player_to_move == PLAYER_1 ? board_2 : board_1);
 
 		int type = move.type;
 		switch(type) {
@@ -737,13 +748,14 @@ struct YinshState : public State<YinshState, YinshMove> {
 			}
 			case 2: 	{
 				board_cp.add_row_and_ring(move.rows2, move.rings2);
-				cout << "undoing row and ring\n";
+				flip_markers(move.ring_dest, move.ring_pos, board_cp, board_enemy);
+//				cout << "undoing row and ring\n";
 				board_cp.remove_ring(move.ring_dest);
-				cout << "undone row and ring\n";
+//				cout << "undone row and ring\n";
 				board_cp.remove_marker(move.ring_pos);
 				board_cp.add_ring(move.ring_pos);
 				board_cp.add_row_and_ring(move.rows1, move.rings1);
-				no_of_markers_remaining++;
+				no_of_markers_remaining = no_of_markers_remaining + 1 - 5 * (move.rows1.size() + move.rows2.size());
 				if (player_to_move == PLAYER_1)
 					no_of_rings_removed_1 -= move.rows1.size() + move.rows2.size();
 				else
@@ -758,8 +770,9 @@ struct YinshState : public State<YinshState, YinshMove> {
 	ostream &to_stream(ostream &os) const override {
 		/*os << "Hello world " << __move__count__ << "\n";
 		return os;*/
+		os << "\033[2J";
 		for (int i = 0; i <= 19; i++) {
-			for (int j = 0; j < 11; j++) {
+			for (int j = 0; j <= 11; j++) {
 				if (i == 0) {
 					if (j == 0) {
 						os << "            ";
@@ -774,44 +787,44 @@ struct YinshState : public State<YinshState, YinshMove> {
 					os << "     " << i - 1 << "     ";
 				}
 
-				if(isValidXYCoord(xy_coord_t(i - 1, j))) {
-					uint128_t p = xy2bitboard(i - 1, j);
+				if(isValidXYCoord(xy_coord_t(i - 1, j-1))) {
+					uint128_t p = xy2bitboard(i - 1, j-1);
 					if(p & board_1.board) {
 						if(board_1.rings.count(p) > 0) {
 							os << whiteRingFormat;
-							break;
+							//break;
 						}
 						else {
 							os << whiteMarkerFormat;
-							break;
+							//break;
 						}
 					}
 					else if(p & board_2.board) {
 						if(board_2.rings.count(p) > 0) {
 							os << blackRingFormat;
-							break;
+							//break;
 						}
 						else {
 							os << blackMarkerFormat;
-							break;
+							//break;
 						}
 					}
-					os << emptyFormat;
-					break;
+					else os << emptyFormat;
+					//break;
 				}
 				else {
 					os << blankFormat;
-					break;
+					//break;
 				}
 			}
 			os << "\n\n";
 		}
-		os << "Player to move: " << player_to_move << "\n";
-		os << "Player 1 rings to be placed: " << no_of_rings_placed_1 << "\n";
-		os << "Player 1 rings removed: " << no_of_rings_removed_1 << "\n";
-		os << "Player 2 rings to be placed: " << no_of_rings_placed_2 << "\n";
-		os << "Player 2 rings removed: " << no_of_rings_removed_2 << "\n";
-		os << "Markers remaining: " << no_of_markers_remaining << "\n\n";
+		os << "Player to move: " << player_to_move << "\t";
+		os << "P1 rings placed: " << no_of_rings_placed_1 << "\t";
+		os << "P1 rings removed: " << no_of_rings_removed_1 << "\t";
+		os << "P2 rings placed: " << no_of_rings_placed_2 << "\t";
+		os << "P2 rings removed: " << no_of_rings_removed_2 << "\t";
+		os << "Markers remaining: " << no_of_markers_remaining << "\t";
 		return os;
 	}
 

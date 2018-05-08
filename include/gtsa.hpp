@@ -808,7 +808,7 @@ struct Tester {
             while (!current.is_terminal()) {
                 auto &algorithm = (current.player_to_move == root->player_to_move) ? algorithm_1 : algorithm_2;
                 if (VERBOSE) {
-                    cout << current.player_to_move << " " << algorithm << endl;
+                //    cout << current.player_to_move << " " << algorithm << endl;
                 }
                 algorithm.reset();
                 Timer timer;

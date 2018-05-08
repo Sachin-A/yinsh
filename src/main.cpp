@@ -16,8 +16,8 @@ int sum = 0;
 cout << "Hello "<< sum << "\n";
 */
 //cout << "so i'll be starting now\n";
-	MonteCarloTreeSearch<YinshState, YinshMove> a(0.1, 30);
-	MonteCarloTreeSearch<YinshState, YinshMove> b(0.1, 10);
+	Minimax<YinshState, YinshMove> a(1);
+	MonteCarloTreeSearch<YinshState, YinshMove> b(1);
 //	Minimax<YinshState, YinshMove> a()
 
 //cout << "so i'll be starting now\n";
