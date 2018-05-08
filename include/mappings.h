@@ -126,9 +126,9 @@ const unordered_map<bitboard_coord_t, unordered_map<bitboard_coord_t, bitboard_c
             xy_coord_t start(i, j);
             auto start_bb = xy2BitboardMap.find(start)->second;
 
-            uint128_t bitmask = 0;
             for (auto dir : directions) {
                 auto next = start + dir;
+                uint128_t bitmask = 0;
                 xy_coord_t prev(0, 0); // 0 means no prev point (ugly special case to maintain exclusive boundaries)
 
                 while (isValidXYCoord(next)) {
@@ -168,9 +168,10 @@ const unordered_map<bitboard_coord_t, unordered_map<bitboard_coord_t, bitboard_c
             xy_coord_t start(i, j);
             auto start_bb = xy2BitboardMap.find(start)->second;
 
-            uint128_t bitmask = 0;
             for (auto dir : directions) {
                 auto end = start + dir*4;
+                uint128_t bitmask = 0;
+
                 if (!isValidXYCoord(end)) {
                     continue;
                 }
@@ -203,10 +204,9 @@ const unordered_map<xy_coord_t, unordered_map<bitboard_coord_t, bitboard_coord_t
             for (auto dir : directions) {
                 auto next = start + dir;
 
-                while (isValidXYCoord(next)) {
+                if (isValidXYCoord(next)) {
                     auto next_bb = xy2BitboardMap.find(next)->second;
                     m[dir][start_bb] = next_bb;
-                    next = next + dir;
                 }
             }
         }
