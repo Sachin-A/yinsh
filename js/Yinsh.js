@@ -29,8 +29,8 @@ var altitude=spacing*Math.sqrt(3)/2;
 var current_player=0;
 
 var player=new Array(2);
-player[0]={board_rings:0, rings_won:0, color:"#009900", current_ring:[-1,-1], five_row:new Array(0)};
-player[1]={board_rings:0, rings_won:0, color:"#990000", current_ring:[-1,-1], five_row:new Array(0)};
+player[0]={board_rings:0, rings_won:0, color:"#BBBBBB", current_ring:[-1,-1], five_row:new Array(0)};
+player[1]={board_rings:0, rings_won:0, color:"#4F4F4F", current_ring:[-1,-1], five_row:new Array(0)};
 
 /*
 0-Place Rings
@@ -302,8 +302,10 @@ function PlaceRings(xcoord,ycoord){
 	if(positions[xcoord][ycoord].piece==0){
 		piece_ctx.beginPath();
 		piece_ctx.strokeStyle=player[current_player].color;
+		piece_ctx.lineWidth=5;
 		piece_ctx.arc(positions[xcoord][ycoord].x,positions[xcoord][ycoord].y,altitude/2.4,0,Math.PI*2);
 		piece_ctx.stroke();
+		piece_ctx.lineWidth=1;
 		positions[xcoord][ycoord].piece=Math.pow(-1,current_player)*2;
 		player[current_player].board_rings++;
 		if(player[current_player].board_rings==5&&player[(current_player+1)%2].board_rings==5){
@@ -396,8 +398,10 @@ function RemoveBlackGuides(xring,yring,destx,desty,asign,bsign){
 				positions[destx][desty].piece=Math.pow(-1,current_player)*2;
 				piece_ctx.beginPath();
 				piece_ctx.strokeStyle=player[current_player].color;
+				piece_ctx.lineWidth=5;
 				piece_ctx.arc(positions[destx][desty].x,positions[destx][desty].y,altitude/2.4,0,Math.PI*2);
 				piece_ctx.stroke();
+				piece_ctx.lineWidth=1;
 
 				flip=0;
 			}
@@ -608,8 +612,10 @@ function RemoveRing(xcoord,ycoord){
 		piece_ctx.clearRect(positions[xcoord][ycoord].x-altitude/1.9, positions[xcoord][ycoord].y-altitude/1.9, altitude*1.1, altitude*1.1);
 		piece_ctx.beginPath();
 		piece_ctx.strokeStyle=player[current_player].color;
+		piece_ctx.lineWidth=1;
 		piece_ctx.arc(Math.pow(-1,current_player)*player[current_player].rings_won*(altitude)+(piece_canvas.width/2),altitude/2,altitude/2,0,Math.PI*2);
 		piece_ctx.stroke();
+		piece_ctx.lineWidth=1;
 
 		positions[xcoord][ycoord].piece=0;
 		if(player[current_player].rings_won==3){
